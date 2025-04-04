@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+    <script>
+      
+        // Language content map
+        var languageContent = {
+            en: {
+                welcomeText: 'Hi 👋, how can we help?',
+                responseTimeText: 'We typically respond right away'
+            },
+            pt: {
+                welcomeText: 'Olá 👋, como podemos ajudar?',
+                responseTimeText: 'Geralmente respondemos imediatamente'
+            },
+            es: {
+                welcomeText: 'Hola 👋, ¿cómo podemos ayudar?',
+                responseTimeText: 'Solemos responder de imediato'
+            },
+            ar: {
+                welcomeText: 'مرحبًا 👋، كيف يمكننا المساعدة؟',
+                responseTimeText: 'عادةً ما نرد على الفور'
+            }
+        };
+    
+        // Detect language from URL
+        var url = window.location.href;
+        var langMatch = url.match(/\/(en|pt|es|ar)(\/|$)/);
+        var lang;
+        
+        if (langMatch) {
+            // Language from URL
+            lang = langMatch[1];
+        } else {
+            // Try to detect browser language
+            var browserLang = (navigator.language || navigator.userLanguage || '').split('-')[0];
+            lang = languageContent[browserLang] ? browserLang : 'en';
+        }
+        
+        var content = languageContent[lang];
+    
+        // Chat widget configuration
+        window.ChatWidgetConfig = {
+            webhook: {
+                url: 'https://n8n.10k.digital/webhook/f406671e-c954-4691-b39a-66c90aa2f103/chat',
+                route: 'general'
+            },
+            branding: {
+                logo: 'https://10k.digital/wp-content/uploads/2025/03/cropped-favicon-10k-32x32.png',
+                name: '10K.Digital',
+                welcomeText: content.welcomeText,
+                responseTimeText: content.responseTimeText,
+                poweredBy: {
+                    text: '',
+                    link: ''
+                }
+            },
+            style: {
+                primaryColor: '#080A56',
+                secondaryColor: '#0b0f7b',
+                position: 'right',
+                backgroundColor: '#ffffff',
+                fontColor: '#333333'
+            },
+            // Definir como true para habilitar logs de depuração
+            debug: true,
+            onError: function(error) {
+                // Suprimir erros em produção
+                if (window.ChatWidgetConfig.debug) {
+                    console.error('Widget error:', error.message);
+                }
+            }
+        };
+    
+        // Determine the script source based on protocol
+        var scriptSrc;
+        if (window.location.protocol === 'file:') {
+            // Local file
+            scriptSrc = './chat-widget.js';
+        } else {
+            // Web file (http or https)
+            scriptSrc = 'https://drive.google.com/open?id=1NtR0Dn8aMBUunifTjaPV6ayn35leK24X&usp=drive_fs';
+        }
+        
+        // Dynamically load the chat widget script with error handling
+        var script = document.createElement('script');
+        script.src = scriptSrc;
+        script.async = true;
+        script.onload = function() {
+            if (window.ChatWidgetConfig.debug) {
+                console.log('Chat widget script loaded successfully');
+            }
+        };
+        script.onerror = function() {
+            console.error('Error loading chat widget script');
+        };
+        document.body.appendChild(script);
+    
+        // Ensure target element exists
+        var targetDiv = document.createElement('div');
+        targetDiv.id = 'n8n-chat';
+        document.body.appendChild(targetDiv);
+    </script>
+</body>
+</html> 
