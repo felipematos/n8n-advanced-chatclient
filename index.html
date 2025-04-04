@@ -44,6 +44,80 @@
         
         var content = languageContent[lang];
     
+        // Function to detect user location
+        function detectUserLocation() {
+            return new Promise((resolve, reject) => {
+                // Try using the IP Geolocation API
+                fetch('https://ipapi.co/json/')
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data && data.city) {
+                            const location = `${data.city}${data.region ? ', ' + data.region : ''}${data.country_name ? ', ' + data.country_name : ''}`;
+                            resolve(location);
+                        } else {
+                            reject('Location not available');
+                        }
+                    })
+                    .catch(error => {
+                        // Fallback to another IP service if the first one fails
+                        fetch('https://ipinfo.io/json')
+                            .then(response => response.json())
+                            .then(data => {
+                                if (data && data.city) {
+                                    const location = `${data.city}${data.region ? ', ' + data.region : ''}${data.country ? ', ' + data.country : ''}`;
+                                    resolve(location);
+                                } else {
+                                    reject('Location not available');
+                                }
+                            })
+                            .catch(err => {
+                                reject('Location detection failed');
+                            });
+                    });
+            });
+        }
+        
+        // Initialize metadata object
+        var chatMetadata = {
+            userLanguage: lang,
+            chatGreeting: content.welcomeText,
+            baseUrl: window.location.origin,
+            detectedLocation: '',
+            userEmail: ''
+        };
+        
+        // Try to get user location
+        detectUserLocation()
+            .then(location => {
+                chatMetadata.detectedLocation = location;
+                if (window.ChatWidgetConfig && window.ChatWidgetConfig.debug) {
+                    console.log('Location detected:', location);
+                }
+            })
+            .catch(error => {
+                if (window.ChatWidgetConfig && window.ChatWidgetConfig.debug) {
+                    console.log('Location detection failed:', error);
+                }
+            });
+            
+        // Try to get user email from localStorage or cookies if available
+        try {
+            const savedEmail = localStorage.getItem('userEmail') || getCookie('userEmail');
+            if (savedEmail) {
+                chatMetadata.userEmail = savedEmail;
+            }
+        } catch (e) {
+            // Ignore any errors when accessing storage
+        }
+        
+        // Helper function to get cookies
+        function getCookie(name) {
+            const value = `; ${document.cookie}`;
+            const parts = value.split(`; ${name}=`);
+            if (parts.length === 2) return parts.pop().split(';').shift();
+            return null;
+        }
+    
         // Chat widget configuration
         window.ChatWidgetConfig = {
             webhook: {
@@ -74,7 +148,9 @@
                 if (window.ChatWidgetConfig.debug) {
                     console.error('Widget error:', error.message);
                 }
-            }
+            },
+            // Custom metadata to be sent with each message
+            metadata: chatMetadata
         };
     
         // Determine the script source based on protocol
@@ -94,6 +170,19 @@
         script.onload = function() {
             if (window.ChatWidgetConfig.debug) {
                 console.log('Chat widget script loaded successfully');
+            }
+            
+            // Intercept and enhance chat webhook requests to include metadata
+            if (window.N8nChat && window.N8nChat.sendMessage) {
+                const originalSendMessage = window.N8nChat.sendMessage;
+                window.N8nChat.sendMessage = function(data) {
+                    // Add metadata to the request payload
+                    if (!data.metadata) {
+                        data.metadata = JSON.stringify(window.ChatWidgetConfig.metadata);
+                    }
+                    // Call the original method
+                    return originalSendMessage.call(this, data);
+                };
             }
         };
         script.onerror = function() {
