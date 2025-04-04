@@ -163,6 +163,51 @@
             scriptSrc = 'https://drive.google.com/open?id=1NtR0Dn8aMBUunifTjaPV6ayn35leK24X&usp=drive_fs';
         }
         
+        // Override fetch to inject metadata into webhook requests
+        const originalFetch = window.fetch;
+        window.fetch = function(url, options) {
+            // Only modify webhook requests to n8n
+            if (url && typeof url === 'string' && url.includes('n8n.10k.digital/webhook')) {
+                if (window.ChatWidgetConfig && window.ChatWidgetConfig.debug) {
+                    console.log('Intercepted webhook request:', url);
+                }
+                
+                try {
+                    // Initialize options if not provided
+                    options = options || {};
+                    options.headers = options.headers || {};
+                    
+                    // Parse the body if it exists
+                    if (options.body && typeof options.body === 'string') {
+                        let body = JSON.parse(options.body);
+                        
+                        // Add metadata to the request
+                        body.metadata = JSON.stringify({
+                            userLanguage: chatMetadata.userLanguage,
+                            baseUrl: chatMetadata.baseUrl,
+                            detectedLocation: chatMetadata.detectedLocation,
+                            chatGreeting: chatMetadata.chatGreeting,
+                            userEmail: chatMetadata.userEmail
+                        });
+                        
+                        // Update the request body
+                        options.body = JSON.stringify(body);
+                        
+                        if (window.ChatWidgetConfig && window.ChatWidgetConfig.debug) {
+                            console.log('Updated request body with metadata:', options.body);
+                        }
+                    }
+                } catch (e) {
+                    if (window.ChatWidgetConfig && window.ChatWidgetConfig.debug) {
+                        console.error('Error intercepting fetch request:', e);
+                    }
+                }
+            }
+            
+            // Call the original fetch with possibly modified options
+            return originalFetch.call(this, url, options);
+        };
+        
         // Dynamically load the chat widget script with error handling
         var script = document.createElement('script');
         script.src = scriptSrc;
@@ -172,18 +217,71 @@
                 console.log('Chat widget script loaded successfully');
             }
             
-            // Intercept and enhance chat webhook requests to include metadata
-            if (window.N8nChat && window.N8nChat.sendMessage) {
-                const originalSendMessage = window.N8nChat.sendMessage;
-                window.N8nChat.sendMessage = function(data) {
-                    // Add metadata to the request payload
-                    if (!data.metadata) {
-                        data.metadata = JSON.stringify(window.ChatWidgetConfig.metadata);
+            // Define a global variable to store the chat component instance
+            var chatComponentInterval = setInterval(function() {
+                // Check if the chat component has been loaded
+                if (window.N8nChat) {
+                    clearInterval(chatComponentInterval);
+                    
+                    if (window.ChatWidgetConfig.debug) {
+                        console.log('Chat component found. Setting up metadata interceptor.');
                     }
-                    // Call the original method
-                    return originalSendMessage.call(this, data);
-                };
-            }
+                    
+                    // Override the original sendMessage method to include our metadata
+                    const originalSendMessage = window.N8nChat.sendMessage;
+                    window.N8nChat.sendMessage = function(data) {
+                        // Add our metadata to the existing data
+                        if (!data.metadata) {
+                            data.metadata = {};
+                        } else if (typeof data.metadata === 'string') {
+                            try {
+                                data.metadata = JSON.parse(data.metadata);
+                            } catch (e) {
+                                data.metadata = {};
+                            }
+                        }
+                        
+                        // Ensure our key metadata fields are included
+                        data.metadata.userLanguage = chatMetadata.userLanguage;
+                        data.metadata.baseUrl = chatMetadata.baseUrl;
+                        data.metadata.detectedLocation = chatMetadata.detectedLocation;
+                        
+                        // Add other metadata if available
+                        if (chatMetadata.chatGreeting) {
+                            data.metadata.chatGreeting = chatMetadata.chatGreeting;
+                        }
+                        if (chatMetadata.userEmail) {
+                            data.metadata.userEmail = chatMetadata.userEmail;
+                        }
+                        
+                        // Convert back to string if needed
+                        data.metadata = JSON.stringify(data.metadata);
+                        
+                        if (window.ChatWidgetConfig.debug) {
+                            console.log('Sending message with metadata:', data);
+                        }
+                        
+                        // Call the original method with our enhanced data
+                        return originalSendMessage.call(this, data);
+                    };
+                    
+                    // Also ensure webhook configuration includes metadata
+                    if (window.N8nChat.webhook && typeof window.N8nChat.webhook.configure === 'function') {
+                        const originalConfigure = window.N8nChat.webhook.configure;
+                        window.N8nChat.webhook.configure = function(config) {
+                            if (!config.metadata) {
+                                config.metadata = chatMetadata;
+                            }
+                            return originalConfigure.call(this, config);
+                        };
+                        
+                        // Reconfigure with our metadata if already configured
+                        if (window.N8nChat.webhook.config) {
+                            window.N8nChat.webhook.config.metadata = chatMetadata;
+                        }
+                    }
+                }
+            }, 100); // Check every 100ms
         };
         script.onerror = function() {
             console.error('Error loading chat widget script');
