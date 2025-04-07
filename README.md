@@ -182,5 +182,6 @@ For support, please open an issue in the GitHub repository or contact the mainta
 
 ## Acknowledgments
 
-- n8n for the workflow automation platform
-- All contributors who have helped improve this widget 
+- n8n for the workflow automation platform: https://n8n.io/
+- n8n original chat-widget client, which provided the base code for this version: https://www.npmjs.com/package/@n8n/chat
+- All contributors who have helped improve this widget: 
