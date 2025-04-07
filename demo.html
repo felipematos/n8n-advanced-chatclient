@@ -39,10 +39,12 @@
         } else {
             // Try to detect browser language
             var browserLang = (navigator.language || navigator.userLanguage || '').split('-')[0];
+            // Fallback to English if browser language is not supported
             lang = languageContent[browserLang] ? browserLang : 'en';
         }
         
-        var content = languageContent[lang];
+        // Ensure we have valid content for the selected language
+        var content = languageContent[lang] || languageContent['en'];
     
         // Function to detect user location
         function detectUserLocation() {
