@@ -46,31 +46,35 @@
     
         // Function to detect user location
         function detectUserLocation() {
-            return new Promise((resolve, reject) => {
+            return new Promise(function(resolve, reject) {
                 // Try using the IP Geolocation API
                 fetch('https://ipapi.co/json/')
-                    .then(response => response.json())
-                    .then(data => {
+                    .then(function(response) { return response.json(); })
+                    .then(function(data) {
                         if (data && data.city) {
-                            const location = `${data.city}${data.region ? ', ' + data.region : ''}${data.country_name ? ', ' + data.country_name : ''}`;
+                            var location = data.city;
+                            if (data.region) location += ', ' + data.region;
+                            if (data.country_name) location += ', ' + data.country_name;
                             resolve(location);
                         } else {
                             reject('Location not available');
                         }
                     })
-                    .catch(error => {
+                    .catch(function(error) {
                         // Fallback to another IP service if the first one fails
                         fetch('https://ipinfo.io/json')
-                            .then(response => response.json())
-                            .then(data => {
+                            .then(function(response) { return response.json(); })
+                            .then(function(data) {
                                 if (data && data.city) {
-                                    const location = `${data.city}${data.region ? ', ' + data.region : ''}${data.country ? ', ' + data.country : ''}`;
+                                    var location = data.city;
+                                    if (data.region) location += ', ' + data.region;
+                                    if (data.country) location += ', ' + data.country;
                                     resolve(location);
                                 } else {
                                     reject('Location not available');
                                 }
                             })
-                            .catch(err => {
+                            .catch(function(err) {
                                 reject('Location detection failed');
                             });
                     });
@@ -88,13 +92,13 @@
         
         // Try to get user location
         detectUserLocation()
-            .then(location => {
+            .then(function(location) {
                 chatMetadata.detectedLocation = location;
                 if (window.ChatWidgetConfig && window.ChatWidgetConfig.debug) {
                     console.log('Location detected:', location);
                 }
             })
-            .catch(error => {
+            .catch(function(error) {
                 if (window.ChatWidgetConfig && window.ChatWidgetConfig.debug) {
                     console.log('Location detection failed:', error);
                 }
@@ -102,7 +106,7 @@
             
         // Try to get user email from localStorage or cookies if available
         try {
-            const savedEmail = localStorage.getItem('userEmail') || getCookie('userEmail');
+            var savedEmail = localStorage.getItem('userEmail') || getCookie('userEmail');
             if (savedEmail) {
                 chatMetadata.userEmail = savedEmail;
             }
@@ -112,8 +116,8 @@
         
         // Helper function to get cookies
         function getCookie(name) {
-            const value = `; ${document.cookie}`;
-            const parts = value.split(`; ${name}=`);
+            var value = '; ' + document.cookie;
+            var parts = value.split('; ' + name + '=');
             if (parts.length === 2) return parts.pop().split(';').shift();
             return null;
         }
@@ -160,11 +164,11 @@
             scriptSrc = './chat-widget.js';
         } else {
             // Web file (http or https)
-            scriptSrc = 'https://drive.google.com/open?id=1NtR0Dn8aMBUunifTjaPV6ayn35leK24X&usp=drive_fs';
+            scriptSrc = 'https://drive.google.com/uc?id=1NtR0Dn8aMBUunifTjaPV6ayn35leK24X&export=download';
         }
         
         // Override fetch to inject metadata into webhook requests
-        const originalFetch = window.fetch;
+        var originalFetch = window.fetch;
         window.fetch = function(url, options) {
             // Only modify webhook requests to n8n
             if (url && typeof url === 'string' && url.includes('n8n.10k.digital/webhook')) {
@@ -179,7 +183,7 @@
                     
                     // Parse the body if it exists
                     if (options.body && typeof options.body === 'string') {
-                        let body = JSON.parse(options.body);
+                        var body = JSON.parse(options.body);
                         
                         // Add metadata to the request
                         body.metadata = JSON.stringify({
@@ -228,7 +232,7 @@
                     }
                     
                     // Override the original sendMessage method to include our metadata
-                    const originalSendMessage = window.N8nChat.sendMessage;
+                    var originalSendMessage = window.N8nChat.sendMessage;
                     window.N8nChat.sendMessage = function(data) {
                         // Add our metadata to the existing data
                         if (!data.metadata) {
@@ -267,7 +271,7 @@
                     
                     // Also ensure webhook configuration includes metadata
                     if (window.N8nChat.webhook && typeof window.N8nChat.webhook.configure === 'function') {
-                        const originalConfigure = window.N8nChat.webhook.configure;
+                        var originalConfigure = window.N8nChat.webhook.configure;
                         window.N8nChat.webhook.configure = function(config) {
                             if (!config.metadata) {
                                 config.metadata = chatMetadata;

@@ -477,6 +477,73 @@
             color: #666;
             font-style: italic;
         }
+
+        /* Estilos para objetos de ação rápida */
+        .n8n-chat-widget .quick-action-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .n8n-chat-widget .quick-action-button {
+            background: linear-gradient(135deg, var(--chat--color-primary) 0%, var(--chat--color-secondary) 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 8px 16px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            max-width: 100%;
+            text-align: center;
+            box-shadow: 0 2px 6px rgba(8, 10, 86, 0.15);
+        }
+
+        .n8n-chat-widget .quick-action-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(8, 10, 86, 0.2);
+        }
+
+        .n8n-chat-widget .quick-action-select {
+            background: linear-gradient(135deg, var(--chat--color-primary) 0%, var(--chat--color-secondary) 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+            width: 100%;
+            max-width: 100%;
+            box-shadow: 0 2px 6px rgba(8, 10, 86, 0.15);
+        }
+
+        .n8n-chat-widget .quick-action-select:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(8, 10, 86, 0.2);
+        }
+
+        .n8n-chat-widget .quick-action-select option {
+            background-color: var(--chat--color-background);
+            color: var(--chat--color-font);
+        }
+
+        .n8n-chat-widget .quick-action-link {
+            font-weight: bold;
+            background: linear-gradient(to right, var(--chat--color-primary), var(--chat--color-secondary));
+            -webkit-background-clip: text;
+            color: transparent;
+            text-decoration: none;
+            cursor: pointer;
+            transition: opacity 0.2s;
+        }
+
+        .n8n-chat-widget .quick-action-link:hover {
+            opacity: 0.8;
+        }
     `;
 
     // Load Geist font
@@ -937,6 +1004,31 @@
         
         let html = text;
         
+        // Armazenar temporariamente os marcadores de ação rápida
+        const quickActionMarkers = [];
+        let markerIndex = 0;
+        
+        // Preservar links de ação rápida - [texto](action:mensagem) ou [texto](acao:mensagem)
+        html = html.replace(/\[([^\]]+)\]\((action|acao):([^)]+)\)/g, (match) => {
+            const marker = `__QUICK_ACTION_LINK_${markerIndex++}__`;
+            quickActionMarkers.push({ marker, content: match });
+            return marker;
+        });
+        
+        // Preservar botões - [{button:texto|mensagem}] ou [{botao:texto|mensagem}]
+        html = html.replace(/\[\{(button|botao):([^|]+)\|([^}]+)\}\]/g, (match) => {
+            const marker = `__QUICK_ACTION_BUTTON_${markerIndex++}__`;
+            quickActionMarkers.push({ marker, content: match });
+            return marker;
+        });
+        
+        // Preservar listas de seleção - [{list:titulo|opção1:mensagem1|opção2:mensagem2}] ou [{lista:titulo|opção1:mensagem1|opção2:mensagem2}]
+        html = html.replace(/\[\{(list|lista):([^|]+)\|((?:[^|:]+:[^|:]+\|?)+)\}\]/g, (match) => {
+            const marker = `__QUICK_ACTION_SELECT_${markerIndex++}__`;
+            quickActionMarkers.push({ marker, content: match });
+            return marker;
+        });
+        
         // Processar imagens markdown - ![alt](url)
         html = html.replace(/!\[(.*?)\]\((https?:\/\/[^)]+)\)/gi, function(match, alt, url) {
             return `<img src="${url}" alt="${alt || 'Imagem'}" onerror="this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%2270%22 viewBox=%220 0 100 70%22%3E%3Crect width=%22100%22 height=%2270%22 fill=%22%23f0f0f0%22/%3E%3Ctext x=%2250%22 y=%2235%22 font-family=%22Arial%22 font-size=%228%22 text-anchor=%22middle%22 fill=%22%23999%22%3EImagem não disponível%3C/text%3E%3C/svg%3E';">`;
@@ -984,6 +1076,11 @@
         html = html.replace(/\n\s*\n/g, '<br><br>');
         html = html.replace(/\n/g, '<br>');
         
+        // Restaurar os marcadores de ação rápida
+        quickActionMarkers.forEach(({ marker, content }) => {
+            html = html.replace(marker, content);
+        });
+        
         return html;
     }
 
@@ -1017,8 +1114,14 @@
             imageContainer.appendChild(img);
             botMessageDiv.appendChild(imageContainer);
         } else {
-            // Renderizar mensagem normalmente
-            botMessageDiv.innerHTML = renderSpecialContent(message);
+            // Processar objetos de ação rápida
+            const quickActions = processQuickActions(message);
+            
+            // Renderizar mensagem normalmente com o texto processado
+            botMessageDiv.innerHTML = renderSpecialContent(quickActions.text);
+            
+            // Renderizar objetos de ação rápida, se houver
+            renderQuickActions(quickActions, botMessageDiv);
         }
         
         messagesContainer.appendChild(botMessageDiv);
@@ -1281,6 +1384,156 @@
         }
         
         return urls;
+    }
+
+    // Função para processar objetos de ação rápida na mensagem
+    function processQuickActions(text) {
+        if (!text) return { text: '', hasQuickActions: false };
+        
+        let processedText = text;
+        let buttons = [];
+        let selectOptions = [];
+        let links = [];
+        
+        // Processar links de ação rápida - [texto](action:mensagem) ou [texto](acao:mensagem)
+        processedText = processedText.replace(/\[([^\]]+)\]\((action|acao):([^)]+)\)/g, (match, text, actionType, action) => {
+            links.push({ text, action });
+            return ''; // Remover o link do texto
+        });
+        
+        // Processar botões - [{button:texto|mensagem}] ou [{botao:texto|mensagem}]
+        processedText = processedText.replace(/\[\{(button|botao):([^|]+)\|([^}]+)\}\]/g, (match, buttonType, text, action) => {
+            buttons.push({ text, action });
+            return ''; // Remover o botão do texto
+        });
+        
+        // Processar listas de seleção - [{list:titulo|opção1:mensagem1|opção2:mensagem2}] ou [{lista:titulo|opção1:mensagem1|opção2:mensagem2}]
+        processedText = processedText.replace(/\[\{(list|lista):([^|]+)\|((?:[^|:]+:[^|:]+\|?)+)\}\]/g, (match, listType, title, optionsText) => {
+            const options = optionsText.split('|').map(option => {
+                const [text, action] = option.split(':');
+                return { text, action };
+            });
+            selectOptions.push({ title, options });
+            return ''; // Remover a lista do texto
+        });
+        
+        // Limpar espaços extras após processamento
+        processedText = processedText.trim();
+        
+        // Verificar se há objetos de ação rápida
+        const hasQuickActions = buttons.length > 0 || selectOptions.length > 0 || links.length > 0;
+        
+        return {
+            text: processedText,
+            hasQuickActions,
+            buttons,
+            selectOptions,
+            links
+        };
+    }
+    
+    // Função para renderizar objetos de ação rápida
+    function renderQuickActions(quickActions, messageElement) {
+        if (!quickActions.hasQuickActions) return;
+        
+        // Processar links embutidos e adicionar ao texto da mensagem
+        if (quickActions.links.length > 0) {
+            const originalContent = messageElement.innerHTML;
+            let newContent = originalContent;
+            
+            quickActions.links.forEach(link => {
+                const linkHTML = `<a class="quick-action-link" data-action="${link.action}">${link.text}</a>`;
+                // Encontrar a posição ideal para inserir o link
+                // Para simplificar, adicionamos ao final do conteúdo
+                newContent += ' ' + linkHTML;
+            });
+            
+            messageElement.innerHTML = newContent;
+        }
+        
+        // Verificar se há botões ou listas de seleção
+        if (quickActions.buttons.length > 0 || quickActions.selectOptions.length > 0) {
+            const container = document.createElement('div');
+            container.className = 'quick-action-container';
+            
+            // Adicionar botões (limitado a 4)
+            const maxButtons = 4;
+            if (quickActions.buttons.length > 0 && quickActions.selectOptions.length === 0) {
+                quickActions.buttons.slice(0, maxButtons).forEach(button => {
+                    const buttonElement = document.createElement('button');
+                    buttonElement.className = 'quick-action-button';
+                    buttonElement.textContent = button.text;
+                    buttonElement.dataset.action = button.action;
+                    container.appendChild(buttonElement);
+                });
+            }
+            
+            // Adicionar lista de seleção (apenas uma, se não houver botões)
+            if (quickActions.selectOptions.length > 0 && quickActions.buttons.length === 0) {
+                const selectOption = quickActions.selectOptions[0]; // Pegar apenas a primeira lista
+                const selectElement = document.createElement('select');
+                selectElement.className = 'quick-action-select';
+                
+                // Opção padrão com o título
+                const defaultOption = document.createElement('option');
+                defaultOption.value = '';
+                defaultOption.textContent = selectOption.title;
+                defaultOption.disabled = true;
+                defaultOption.selected = true;
+                selectElement.appendChild(defaultOption);
+                
+                // Adicionar opções da lista
+                selectOption.options.forEach(option => {
+                    const optionElement = document.createElement('option');
+                    optionElement.value = option.action;
+                    optionElement.textContent = option.text;
+                    selectElement.appendChild(optionElement);
+                });
+                
+                container.appendChild(selectElement);
+            }
+            
+            messageElement.appendChild(container);
+        }
+        
+        // Adicionar event listeners para os objetos de ação rápida
+        addQuickActionEventListeners(messageElement);
+    }
+    
+    // Função para adicionar event listeners aos objetos de ação rápida
+    function addQuickActionEventListeners(element) {
+        // Event listener para botões
+        element.querySelectorAll('.quick-action-button').forEach(button => {
+            button.addEventListener('click', function() {
+                const action = this.dataset.action;
+                if (action) {
+                    sendMessage(action);
+                }
+            });
+        });
+        
+        // Event listener para links
+        element.querySelectorAll('.quick-action-link').forEach(link => {
+            link.addEventListener('click', function(e) {
+                e.preventDefault();
+                const action = this.dataset.action;
+                if (action) {
+                    sendMessage(action);
+                }
+            });
+        });
+        
+        // Event listener para listas de seleção
+        element.querySelectorAll('.quick-action-select').forEach(select => {
+            select.addEventListener('change', function() {
+                const action = this.value;
+                if (action) {
+                    sendMessage(action);
+                    // Resetar a seleção após enviar a mensagem
+                    this.selectedIndex = 0;
+                }
+            });
+        });
     }
 
     // Adicionar um handler de eventos mais robusto para o botão "new-chat-btn"
