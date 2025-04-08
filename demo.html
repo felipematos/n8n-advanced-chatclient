@@ -257,6 +257,16 @@
                     backgroundColor: formData.get('backgroundColor'),
                     fontColor: formData.get('fontColor')
                 },
+                proactivePrompt: {
+                    enabled: true,
+                    delay: 10000,
+                    message: {
+                        en: "Chat with our AI now and resolve all your doubts!",
+                        pt: "Converse com nossa IA agora e resolva todas as suas dúvidas!",
+                        es: "¡Chatea con nuestra IA ahora y resuelve todas tus dudas!",
+                        ar: "تحدث مع الذكاء الاصطناعي الخاص بنا الآن وحل جميع شكوكك!"
+                    }
+                },
                 debug: formData.get('debugMode') === 'true'
             };
 

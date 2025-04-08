@@ -619,6 +619,72 @@
         .n8n-chat-widget .quick-action-link:hover {
             opacity: 0.8;
         }
+
+        /* Estilos para o balão de prompt proativo */
+        .n8n-chat-widget .proactive-prompt {
+            position: fixed;
+            bottom: 90px; /* Acima do botão de toggle */
+            right: 20px;
+            width: 280px;
+            background: linear-gradient(135deg, var(--chat--color-primary) 0%, var(--chat--color-secondary) 100%);
+            color: white;
+            padding: 16px;
+            border-radius: 12px;
+            box-shadow: 0 6px 20px rgba(8, 10, 86, 0.2);
+            z-index: 999; /* Abaixo do toggle */
+            opacity: 0;
+            transform: translateY(10px);
+            transition: opacity 0.4s ease, transform 0.4s ease;
+            font-size: 14px;
+            line-height: 1.5;
+        }
+
+        .n8n-chat-widget .proactive-prompt.position-left {
+            right: auto;
+            left: 20px;
+        }
+
+        .n8n-chat-widget .proactive-prompt.show {
+            opacity: 1;
+            transform: translateY(0);
+        }
+
+        /* Seta apontando para o botão de toggle */
+        .n8n-chat-widget .proactive-prompt::after {
+            content: '';
+            position: absolute;
+            bottom: -10px; /* Posiciona a seta abaixo do balão */
+            right: 25px; /* Alinha com o centro do botão toggle */
+            width: 0;
+            height: 0;
+            border-left: 10px solid transparent;
+            border-right: 10px solid transparent;
+            border-top: 10px solid var(--chat--color-secondary); /* Cor correspondente ao gradiente */
+        }
+
+        .n8n-chat-widget .proactive-prompt.position-left::after {
+            right: auto;
+            left: 25px;
+        }
+
+        .n8n-chat-widget .proactive-prompt .close-prompt {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: none;
+            border: none;
+            color: white;
+            opacity: 0.7;
+            cursor: pointer;
+            font-size: 18px;
+            padding: 4px;
+            line-height: 1;
+            transition: opacity 0.2s;
+        }
+
+        .n8n-chat-widget .proactive-prompt .close-prompt:hover {
+            opacity: 1;
+        }
     `;
 
     // Load Geist font
@@ -655,7 +721,20 @@
             position: 'right',
             backgroundColor: '#ffffff',
             fontColor: '#333333'
+        },
+        proactivePrompt: {
+            enabled: false,
+            delay: 10000, // 10 segundos
+            message: {} // Será preenchido com traduções
         }
+    };
+
+    // Preencher mensagens padrão do prompt proativo
+    defaultConfig.proactivePrompt.message = {
+        en: "Chat with our AI now and resolve all your doubts!",
+        pt: "Converse com nossa IA agora e resolva todas as suas dúvidas!",
+        es: "¡Chatea con nuestra IA ahora y resuelve todas tus dudas!",
+        ar: "تحدث مع الذكاء الاصطناعي الخاص بنا الآن وحل جميع شكوكك!"
     };
 
     // Merge user config with defaults
@@ -663,7 +742,9 @@
         {
             webhook: { ...defaultConfig.webhook, ...window.ChatWidgetConfig.webhook },
             branding: { ...defaultConfig.branding, ...window.ChatWidgetConfig.branding },
-            style: { ...defaultConfig.style, ...window.ChatWidgetConfig.style }
+            style: { ...defaultConfig.style, ...window.ChatWidgetConfig.style },
+            // Mesclar configuração do prompt proativo
+            proactivePrompt: { ...defaultConfig.proactivePrompt, ...(window.ChatWidgetConfig.proactivePrompt || {}) }
         } : defaultConfig;
 
     // Prevent multiple initializations
@@ -1232,25 +1313,29 @@
             connecting: "Hi! Connecting you...",
             fallback: "Hi! How can I help?",
             processing: "Thank you for your message. We're processing it and will respond shortly.",
-            error: "Thank you for your message. How can I help you further?"
+            error: "Thank you for your message. How can I help you further?",
+            proactiveMessage: defaultConfig.proactivePrompt.message['en'] // Default to English
         },
         pt: {
             connecting: "Olá! Estamos conectando você...",
             fallback: "Olá! Como posso ajudar?",
             processing: "Obrigado pela sua mensagem. Estamos processando e responderemos em breve.",
-            error: "Obrigado pela sua mensagem. Como posso ajudar mais?"
+            error: "Obrigado pela sua mensagem. Como posso ajudar mais?",
+            proactiveMessage: defaultConfig.proactivePrompt.message['pt']
         },
         es: {
             connecting: "¡Hola! Conectándote...",
             fallback: "¡Hola! ¿Cómo puedo ayudar?",
             processing: "Gracias por tu mensaje. Lo estamos procesando y responderemos pronto.",
-            error: "Gracias por tu mensaje. ¿Cómo puedo ayudarte más?"
+            error: "Gracias por tu mensaje. ¿Cómo puedo ayudarte más?",
+            proactiveMessage: defaultConfig.proactivePrompt.message['es']
         },
         ar: {
             connecting: "مرحباً! جاري توصيلك...",
             fallback: "مرحباً! كيف يمكنني المساعدة؟",
             processing: "شكراً لرسالتك. نحن نعالجها وسنرد قريباً.",
-            error: "شكراً لرسالتك. كيف يمكنني المساعدة أكثر؟"
+            error: "شكراً لرسالتك. كيف يمكنني المساعدة أكثر؟",
+            proactiveMessage: defaultConfig.proactivePrompt.message['ar']
         }
     };
 
@@ -1767,6 +1852,9 @@
             }, 100);
         }
         
+        // Esconder o prompt proativo se estiver visível
+        hideProactivePrompt();
+        
         debug('Classe open ' + (chatContainer.classList.contains('open') ? 'adicionada' : 'removida'));
     });
 
@@ -1792,4 +1880,64 @@
         console.log('[n8n Chat Widget] Debug mode enabled. Refresh the page to see detailed logs.');
         return 'Debug mode enabled. Refresh the page to see detailed logs.';
     };
+
+    // Função para criar e mostrar o balão de prompt proativo
+    let proactivePromptTimeout;
+    let proactivePromptElement = null;
+
+    function createProactivePrompt() {
+        if (!config.proactivePrompt.enabled || proactivePromptElement) return;
+
+        const promptMessage = getTranslatedMessage('proactiveMessage');
+        
+        proactivePromptElement = document.createElement('div');
+        proactivePromptElement.className = `proactive-prompt${config.style.position === 'left' ? ' position-left' : ''}`;
+        proactivePromptElement.innerHTML = `
+            ${promptMessage}
+            <button class="close-prompt" title="Fechar">&times;</button>
+        `;
+        
+        widgetContainer.appendChild(proactivePromptElement);
+
+        // Adicionar listener para fechar o prompt
+        const closePromptButton = proactivePromptElement.querySelector('.close-prompt');
+        closePromptButton.addEventListener('click', (e) => {
+            e.stopPropagation(); // Impedir que o clique feche o chat se o prompt estiver sobre o botão
+            hideProactivePrompt();
+        });
+        
+        // Forçar reflow para garantir a animação
+        void proactivePromptElement.offsetWidth;
+        
+        proactivePromptElement.classList.add('show');
+        debug('Prompt proativo exibido');
+    }
+
+    // Função para esconder e remover o balão de prompt proativo
+    function hideProactivePrompt() {
+        if (proactivePromptElement) {
+            proactivePromptElement.classList.remove('show');
+            // Remover o elemento após a animação de fade out
+            setTimeout(() => {
+                if (proactivePromptElement) {
+                    proactivePromptElement.remove();
+                    proactivePromptElement = null;
+                    debug('Prompt proativo removido');
+                }
+            }, 400); // Tempo correspondente à transição CSS
+        }
+        // Limpar o timeout se o usuário interagir antes
+        clearTimeout(proactivePromptTimeout);
+    }
+
+    // Agendar a exibição do prompt proativo
+    if (config.proactivePrompt.enabled) {
+        proactivePromptTimeout = setTimeout(() => {
+            // Verificar se o chat já está aberto
+            if (!chatContainer.classList.contains('open')) {
+                createProactivePrompt();
+            }
+        }, config.proactivePrompt.delay);
+        debug(`Prompt proativo agendado para ${config.proactivePrompt.delay / 1000}s`);
+    }
 })();
