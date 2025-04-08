@@ -3,301 +3,278 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+    <title>N8N Chat Widget Demo</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .config-form {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .form-group {
+            margin-bottom: 15px;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+        }
+        input[type="text"], 
+        input[type="color"],
+        select {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            box-sizing: border-box;
+        }
+        .color-preview {
+            width: 30px;
+            height: 30px;
+            display: inline-block;
+            vertical-align: middle;
+            margin-left: 10px;
+            border: 1px solid #ddd;
+        }
+        button {
+            background: #080A56;
+            color: white;
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background: #0b0f7b;
+        }
+        .section {
+            margin-bottom: 20px;
+            padding: 15px;
+            background: #fff;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .section h2 {
+            margin-top: 0;
+            color: #080A56;
+        }
+
+        /* Smart Object Styles */
+        .smart-button {
+            background: linear-gradient(135deg, #f0f2ff 0%, #f5f0ff 100%);
+            border: 1px solid rgba(8, 10, 86, 0.1);
+            color: var(--primary-color, #080A56);
+            padding: 10px 20px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 500;
+            box-shadow: 0 2px 4px rgba(8, 10, 86, 0.05);
+        }
+
+        .smart-button:hover {
+            background: linear-gradient(135deg, #e6e9ff 0%, #ede6ff 100%);
+            box-shadow: 0 4px 8px rgba(8, 10, 86, 0.1);
+            transform: translateY(-1px);
+        }
+
+        .smart-button:active {
+            transform: translateY(1px);
+            box-shadow: 0 2px 4px rgba(8, 10, 86, 0.05);
+        }
+
+        .smart-list {
+            background: linear-gradient(135deg, #f8f9ff 0%, #faf8ff 100%);
+            border: 1px solid rgba(8, 10, 86, 0.1);
+            border-radius: 8px;
+            padding: 15px;
+            margin: 10px 0;
+        }
+
+        .smart-list-item {
+            padding: 10px 15px;
+            margin: 5px 0;
+            border-radius: 4px;
+            color: var(--primary-color, #080A56);
+            transition: all 0.2s ease;
+            cursor: pointer;
+        }
+
+        .smart-list-item:hover {
+            background: linear-gradient(135deg, #f0f2ff 0%, #f5f0ff 100%);
+        }
+
+        .smart-list-item:active {
+            background: linear-gradient(135deg, #e6e9ff 0%, #ede6ff 100%);
+        }
+
+        /* Apply smart styles to existing elements */
+        button {
+            composes: smart-button;
+        }
+
+        select {
+            composes: smart-button;
+            appearance: none;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23080A56' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+            background-size: 15px;
+            padding-right: 35px;
+        }
+    </style>
 </head>
 <body>
+    <h1>N8N Chat Widget Demo</h1>
+    
+    <div class="config-form">
+        <form id="chatConfigForm">
+            <div class="section">
+                <h2>Webhook Configuration</h2>
+                <div class="form-group">
+                    <label for="webhookUrl">Webhook URL:</label>
+                    <input type="text" id="webhookUrl" name="webhookUrl" value="https://n8n.10k.digital/webhook/f406671e-c954-4691-b39a-66c90aa2f103/chat">
+                </div>
+                <div class="form-group">
+                    <label for="webhookRoute">Webhook Route:</label>
+                    <input type="text" id="webhookRoute" name="webhookRoute" value="general">
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>Branding</h2>
+                <div class="form-group">
+                    <label for="logoUrl">Logo URL:</label>
+                    <input type="text" id="logoUrl" name="logoUrl" value="https://10k.digital/wp-content/uploads/2025/03/cropped-favicon-10k-32x32.png">
+                </div>
+                <div class="form-group">
+                    <label for="brandName">Brand Name:</label>
+                    <input type="text" id="brandName" name="brandName" value="10K.Digital">
+                </div>
+                <div class="form-group">
+                    <label for="welcomeText">Welcome Text:</label>
+                    <input type="text" id="welcomeText" name="welcomeText" value="Hi 👋, how can we help?">
+                </div>
+                <div class="form-group">
+                    <label for="responseTimeText">Response Time Text:</label>
+                    <input type="text" id="responseTimeText" name="responseTimeText" value="We typically respond right away">
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>Style</h2>
+                <div class="form-group">
+                    <label for="primaryColor">Primary Color:</label>
+                    <input type="color" id="primaryColor" name="primaryColor" value="#080A56">
+                    <div class="color-preview" style="background-color: #080A56;"></div>
+                </div>
+                <div class="form-group">
+                    <label for="secondaryColor">Secondary Color:</label>
+                    <input type="color" id="secondaryColor" name="secondaryColor" value="#0b0f7b">
+                    <div class="color-preview" style="background-color: #0b0f7b;"></div>
+                </div>
+                <div class="form-group">
+                    <label for="position">Position:</label>
+                    <select id="position" name="position">
+                        <option value="right">Right</option>
+                        <option value="left">Left</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label for="backgroundColor">Background Color:</label>
+                    <input type="color" id="backgroundColor" name="backgroundColor" value="#ffffff">
+                    <div class="color-preview" style="background-color: #ffffff;"></div>
+                </div>
+                <div class="form-group">
+                    <label for="fontColor">Font Color:</label>
+                    <input type="color" id="fontColor" name="fontColor" value="#333333">
+                    <div class="color-preview" style="background-color: #333333;"></div>
+                </div>
+            </div>
+
+            <div class="section">
+                <h2>Advanced Settings</h2>
+                <div class="form-group">
+                    <label for="debugMode">Debug Mode:</label>
+                    <select id="debugMode" name="debugMode">
+                        <option value="true">Enabled</option>
+                        <option value="false">Disabled</option>
+                    </select>
+                </div>
+            </div>
+
+            <button type="submit">Load Chat Widget</button>
+        </form>
+    </div>
+
+    <div id="chatContainer"></div>
+
     <script>
-      
-        // Language content map
-        var languageContent = {
-            en: {
-                welcomeText: 'Hi 👋, how can we help?',
-                responseTimeText: 'We typically respond right away'
-            },
-            pt: {
-                welcomeText: 'Olá 👋, como podemos ajudar?',
-                responseTimeText: 'Geralmente respondemos imediatamente'
-            },
-            es: {
-                welcomeText: 'Hola 👋, ¿cómo podemos ayudar?',
-                responseTimeText: 'Solemos responder de imediato'
-            },
-            ar: {
-                welcomeText: 'مرحبًا 👋، كيف يمكننا المساعدة؟',
-                responseTimeText: 'عادةً ما نرد على الفور'
-            }
-        };
-    
-        // Detect language from URL
-        var url = window.location.href;
-        var langMatch = url.match(/\/(en|pt|es|ar)(\/|$)/);
-        var lang;
-        
-        if (langMatch) {
-            // Language from URL
-            lang = langMatch[1];
-        } else {
-            // Try to detect browser language
-            var browserLang = (navigator.language || navigator.userLanguage || '').split('-')[0];
-            // Fallback to English if browser language is not supported
-            lang = languageContent[browserLang] ? browserLang : 'en';
-        }
-        
-        // Ensure we have valid content for the selected language
-        var content = languageContent[lang] || languageContent['en'];
-    
-        // Function to detect user location
-        function detectUserLocation() {
-            return new Promise(function(resolve, reject) {
-                // Try using the IP Geolocation API
-                fetch('https://ipapi.co/json/')
-                    .then(function(response) { return response.json(); })
-                    .then(function(data) {
-                        if (data && data.city) {
-                            var location = data.city;
-                            if (data.region) location += ', ' + data.region;
-                            if (data.country_name) location += ', ' + data.country_name;
-                            resolve(location);
-                        } else {
-                            reject('Location not available');
-                        }
-                    })
-                    .catch(function(error) {
-                        // Fallback to another IP service if the first one fails
-                        fetch('https://ipinfo.io/json')
-                            .then(function(response) { return response.json(); })
-                            .then(function(data) {
-                                if (data && data.city) {
-                                    var location = data.city;
-                                    if (data.region) location += ', ' + data.region;
-                                    if (data.country) location += ', ' + data.country;
-                                    resolve(location);
-                                } else {
-                                    reject('Location not available');
-                                }
-                            })
-                            .catch(function(err) {
-                                reject('Location detection failed');
-                            });
-                    });
+        // Update color previews when color inputs change
+        document.querySelectorAll('input[type="color"]').forEach(input => {
+            input.addEventListener('input', function() {
+                this.nextElementSibling.style.backgroundColor = this.value;
             });
-        }
-        
-        // Initialize metadata object
-        var chatMetadata = {
-            userLanguage: lang,
-            chatGreeting: content.welcomeText,
-            baseUrl: window.location.origin,
-            detectedLocation: '',
-            userEmail: ''
-        };
-        
-        // Try to get user location
-        detectUserLocation()
-            .then(function(location) {
-                chatMetadata.detectedLocation = location;
-                if (window.ChatWidgetConfig && window.ChatWidgetConfig.debug) {
-                    console.log('Location detected:', location);
-                }
-            })
-            .catch(function(error) {
-                if (window.ChatWidgetConfig && window.ChatWidgetConfig.debug) {
-                    console.log('Location detection failed:', error);
-                }
-            });
+        });
+
+        // Handle form submission
+        document.getElementById('chatConfigForm').addEventListener('submit', function(e) {
+            e.preventDefault();
             
-        // Try to get user email from localStorage or cookies if available
-        try {
-            var savedEmail = localStorage.getItem('userEmail') || getCookie('userEmail');
-            if (savedEmail) {
-                chatMetadata.userEmail = savedEmail;
-            }
-        } catch (e) {
-            // Ignore any errors when accessing storage
-        }
-        
-        // Helper function to get cookies
-        function getCookie(name) {
-            var value = '; ' + document.cookie;
-            var parts = value.split('; ' + name + '=');
-            if (parts.length === 2) return parts.pop().split(';').shift();
-            return null;
-        }
-    
-        // Chat widget configuration
-        window.ChatWidgetConfig = {
-            webhook: {
-                url: 'https://n8n.10k.digital/webhook/f406671e-c954-4691-b39a-66c90aa2f103/chat',
-                route: 'general'
-            },
-            branding: {
-                logo: 'https://10k.digital/wp-content/uploads/2025/03/cropped-favicon-10k-32x32.png',
-                name: '10K.Digital',
-                welcomeText: content.welcomeText,
-                responseTimeText: content.responseTimeText,
-                poweredBy: {
-                    text: '',
-                    link: ''
-                }
-            },
-            style: {
-                primaryColor: '#080A56',
-                secondaryColor: '#0b0f7b',
-                position: 'right',
-                backgroundColor: '#ffffff',
-                fontColor: '#333333'
-            },
-            // Definir como true para habilitar logs de depuração
-            debug: true,
-            onError: function(error) {
-                // Suprimir erros em produção
-                if (window.ChatWidgetConfig.debug) {
-                    console.error('Widget error:', error.message);
-                }
-            },
-            // Custom metadata to be sent with each message
-            metadata: chatMetadata
-        };
-    
-        // Determine the script source based on protocol
-        var scriptSrc;
-        if (window.location.protocol === 'file:') {
-            // Local file
-            scriptSrc = './chat-widget.js';
-        } else {
-            // Web file (http or https)
-            scriptSrc = 'https://felipematos.github.io/n8n-advanced-chatclient/chat-widget.js';
-        }
-        
-        // Override fetch to inject metadata into webhook requests
-        var originalFetch = window.fetch;
-        window.fetch = function(url, options) {
-            // Only modify webhook requests to n8n
-            if (url && typeof url === 'string' && url.includes('n8n.10k.digital/webhook')) {
-                if (window.ChatWidgetConfig && window.ChatWidgetConfig.debug) {
-                    console.log('Intercepted webhook request:', url);
-                }
-                
-                try {
-                    // Initialize options if not provided
-                    options = options || {};
-                    options.headers = options.headers || {};
-                    
-                    // Parse the body if it exists
-                    if (options.body && typeof options.body === 'string') {
-                        var body = JSON.parse(options.body);
-                        
-                        // Add metadata to the request
-                        body.metadata = JSON.stringify({
-                            userLanguage: chatMetadata.userLanguage,
-                            baseUrl: chatMetadata.baseUrl,
-                            detectedLocation: chatMetadata.detectedLocation,
-                            chatGreeting: chatMetadata.chatGreeting,
-                            userEmail: chatMetadata.userEmail
-                        });
-                        
-                        // Update the request body
-                        options.body = JSON.stringify(body);
-                        
-                        if (window.ChatWidgetConfig && window.ChatWidgetConfig.debug) {
-                            console.log('Updated request body with metadata:', options.body);
-                        }
-                    }
-                } catch (e) {
-                    if (window.ChatWidgetConfig && window.ChatWidgetConfig.debug) {
-                        console.error('Error intercepting fetch request:', e);
-                    }
-                }
-            }
+            // Clear previous chat widget if exists
+            const chatContainer = document.getElementById('chatContainer');
+            chatContainer.innerHTML = '';
             
-            // Call the original fetch with possibly modified options
-            return originalFetch.call(this, url, options);
-        };
-        
-        // Dynamically load the chat widget script with error handling
-        var script = document.createElement('script');
-        script.src = scriptSrc;
-        script.async = true;
-        script.onload = function() {
-            if (window.ChatWidgetConfig.debug) {
-                console.log('Chat widget script loaded successfully');
-            }
+            // Create new chat widget div
+            const chatDiv = document.createElement('div');
+            chatDiv.id = 'n8n-chat';
+            chatContainer.appendChild(chatDiv);
             
-            // Define a global variable to store the chat component instance
-            var chatComponentInterval = setInterval(function() {
-                // Check if the chat component has been loaded
-                if (window.N8nChat) {
-                    clearInterval(chatComponentInterval);
-                    
-                    if (window.ChatWidgetConfig.debug) {
-                        console.log('Chat component found. Setting up metadata interceptor.');
-                    }
-                    
-                    // Override the original sendMessage method to include our metadata
-                    var originalSendMessage = window.N8nChat.sendMessage;
-                    window.N8nChat.sendMessage = function(data) {
-                        // Add our metadata to the existing data
-                        if (!data.metadata) {
-                            data.metadata = {};
-                        } else if (typeof data.metadata === 'string') {
-                            try {
-                                data.metadata = JSON.parse(data.metadata);
-                            } catch (e) {
-                                data.metadata = {};
-                            }
-                        }
-                        
-                        // Ensure our key metadata fields are included
-                        data.metadata.userLanguage = chatMetadata.userLanguage;
-                        data.metadata.baseUrl = chatMetadata.baseUrl;
-                        data.metadata.detectedLocation = chatMetadata.detectedLocation;
-                        
-                        // Add other metadata if available
-                        if (chatMetadata.chatGreeting) {
-                            data.metadata.chatGreeting = chatMetadata.chatGreeting;
-                        }
-                        if (chatMetadata.userEmail) {
-                            data.metadata.userEmail = chatMetadata.userEmail;
-                        }
-                        
-                        // Convert back to string if needed
-                        data.metadata = JSON.stringify(data.metadata);
-                        
-                        if (window.ChatWidgetConfig.debug) {
-                            console.log('Sending message with metadata:', data);
-                        }
-                        
-                        // Call the original method with our enhanced data
-                        return originalSendMessage.call(this, data);
-                    };
-                    
-                    // Also ensure webhook configuration includes metadata
-                    if (window.N8nChat.webhook && typeof window.N8nChat.webhook.configure === 'function') {
-                        var originalConfigure = window.N8nChat.webhook.configure;
-                        window.N8nChat.webhook.configure = function(config) {
-                            if (!config.metadata) {
-                                config.metadata = chatMetadata;
-                            }
-                            return originalConfigure.call(this, config);
-                        };
-                        
-                        // Reconfigure with our metadata if already configured
-                        if (window.N8nChat.webhook.config) {
-                            window.N8nChat.webhook.config.metadata = chatMetadata;
-                        }
-                    }
-                }
-            }, 100); // Check every 100ms
-        };
-        script.onerror = function() {
-            console.error('Error loading chat widget script');
-        };
-        document.body.appendChild(script);
-    
-        // Ensure target element exists
-        var targetDiv = document.createElement('div');
-        targetDiv.id = 'n8n-chat';
-        document.body.appendChild(targetDiv);
+            // Get form values
+            const formData = new FormData(this);
+            const config = {
+                webhook: {
+                    url: formData.get('webhookUrl'),
+                    route: formData.get('webhookRoute')
+                },
+                branding: {
+                    logo: formData.get('logoUrl'),
+                    name: formData.get('brandName'),
+                    welcomeText: formData.get('welcomeText'),
+                    responseTimeText: formData.get('responseTimeText')
+                },
+                style: {
+                    primaryColor: formData.get('primaryColor'),
+                    secondaryColor: formData.get('secondaryColor'),
+                    position: formData.get('position'),
+                    backgroundColor: formData.get('backgroundColor'),
+                    fontColor: formData.get('fontColor')
+                },
+                debug: formData.get('debugMode') === 'true'
+            };
+
+            // Set global configuration
+            window.ChatWidgetConfig = config;
+
+            // Remove any existing script
+            const existingScript = document.getElementById('n8n-chat-widget-script');
+            if (existingScript) {
+                existingScript.remove();
+            }
+
+            // Load the chat widget script
+            const script = document.createElement('script');
+            script.id = 'n8n-chat-widget-script';
+            script.src = 'chat-widget.js';
+            document.body.appendChild(script);
+        });
     </script>
 </body>
 </html> 

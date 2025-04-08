@@ -42,6 +42,52 @@
             border: 1px solid rgba(8, 10, 86, 0.2);
             overflow: hidden;
             font-family: inherit;
+            transition: all 0.3s ease;
+        }
+
+        .n8n-chat-widget .chat-container.expanded {
+            width: 90vw;
+            height: 90vh;
+            top: 5vh;
+            bottom: auto;
+            right: 5vw;
+        }
+
+        .n8n-chat-widget .header-buttons {
+            position: absolute;
+            right: 16px;
+            top: 50%;
+            transform: translateY(-50%);
+            display: flex;
+            gap: 24px;
+        }
+
+        .n8n-chat-widget .header-button {
+            background: none;
+            border: none;
+            color: var(--chat--color-font);
+            cursor: pointer;
+            padding: 4px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+            opacity: 0.6;
+            font-size: 20px;
+        }
+
+        .n8n-chat-widget .header-button:hover {
+            opacity: 1;
+        }
+
+        .n8n-chat-widget .expand-button svg {
+            width: 16px;
+            height: 16px;
+            transition: transform 0.3s ease;
+        }
+
+        .n8n-chat-widget .expanded .expand-button svg {
+            transform: rotate(180deg);
         }
 
         .n8n-chat-widget .chat-container.position-left {
@@ -487,48 +533,77 @@
         }
 
         .n8n-chat-widget .quick-action-button {
-            background: linear-gradient(135deg, var(--chat--color-primary) 0%, var(--chat--color-secondary) 100%);
-            color: white;
-            border: none;
+            background: linear-gradient(135deg, var(--chat--color-primary-light, #f0f2ff) 0%, var(--chat--color-secondary-light, #f5f0ff) 100%);
+            color: var(--chat--color-primary, #080A56);
+            border: 1px solid rgba(8, 10, 86, 0.1);
             border-radius: 8px;
             padding: 8px 16px;
             font-size: 14px;
             font-weight: 500;
             cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
-            max-width: 100%;
-            text-align: center;
-            box-shadow: 0 2px 6px rgba(8, 10, 86, 0.15);
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            box-shadow: 0 2px 6px rgba(8, 10, 86, 0.05);
         }
 
         .n8n-chat-widget .quick-action-button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(8, 10, 86, 0.2);
+            background: linear-gradient(135deg, var(--chat--color-primary-light-hover, #e6e9ff) 0%, var(--chat--color-secondary-light-hover, #ede6ff) 100%);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(8, 10, 86, 0.1);
+        }
+
+        .n8n-chat-widget .quick-action-button:active {
+            transform: translateY(1px);
+            box-shadow: 0 2px 4px rgba(8, 10, 86, 0.05);
+        }
+
+        .n8n-chat-widget .quick-action-button.external {
+            padding-right: 12px;
+        }
+
+        .n8n-chat-widget .quick-action-button.external::after {
+            content: "↗";
+            font-size: 12px;
+            opacity: 0.7;
         }
 
         .n8n-chat-widget .quick-action-select {
-            background: linear-gradient(135deg, var(--chat--color-primary) 0%, var(--chat--color-secondary) 100%);
-            color: white;
-            border: none;
+            background: linear-gradient(135deg, var(--chat--color-primary-light, #f0f2ff) 0%, var(--chat--color-secondary-light, #f5f0ff) 100%);
+            color: var(--chat--color-primary, #080A56);
+            border: 1px solid rgba(8, 10, 86, 0.1);
             border-radius: 8px;
             padding: 8px 12px;
             font-size: 14px;
             font-weight: 500;
             cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
+            transition: all 0.2s ease;
             width: 100%;
             max-width: 100%;
-            box-shadow: 0 2px 6px rgba(8, 10, 86, 0.15);
+            box-shadow: 0 2px 6px rgba(8, 10, 86, 0.05);
+            appearance: none;
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23080A56' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
+            background-repeat: no-repeat;
+            background-position: right 10px center;
+            background-size: 15px;
+            padding-right: 35px;
         }
 
         .n8n-chat-widget .quick-action-select:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 4px 8px rgba(8, 10, 86, 0.2);
+            background: linear-gradient(135deg, var(--chat--color-primary-light-hover, #e6e9ff) 0%, var(--chat--color-secondary-light-hover, #ede6ff) 100%);
+            transform: translateY(-1px);
+            box-shadow: 0 4px 8px rgba(8, 10, 86, 0.1);
+        }
+
+        .n8n-chat-widget .quick-action-select:active {
+            transform: translateY(1px);
+            box-shadow: 0 2px 4px rgba(8, 10, 86, 0.05);
         }
 
         .n8n-chat-widget .quick-action-select option {
-            background-color: var(--chat--color-background);
-            color: var(--chat--color-font);
+            background-color: var(--chat--color-background, #ffffff);
+            color: var(--chat--color-font, #333333);
         }
 
         .n8n-chat-widget .quick-action-link {
@@ -615,22 +690,19 @@
     const chatContainer = document.createElement('div');
     chatContainer.className = `chat-container${config.style.position === 'left' ? ' position-left' : ''}`;
     
-    // Criar conteúdo do chat container diretamente, sem anichar outro .chat-container
+    // Criar conteúdo do chat container diretamente
     let chatContainerHTML = `
         <div class="brand-header">
             ${config.branding.logo ? `<img src="${config.branding.logo}" alt="${config.branding.name || 'Chat'}" />` : ''}
             <span>${config.branding.name || 'Chat'}</span>
-            <button class="close-button">×</button>
-        </div>
-        <div class="new-conversation">
-            <p class="welcome-text">${config.branding.welcomeText || 'Como posso ajudar?'}</p>
-            <button class="new-chat-btn">
-                <svg class="message-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <path d="M12 2C17.5228 2 22 6.47715 22 12C22 17.5228 17.5228 22 12 22C10.249 22 8.50148 21.566 6.90191 20.6992L2 22L3.30075 17.0981C2.43402 15.4985 2 13.751 2 12C2 6.47715 6.47715 2 12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                </svg>
-                ${lang === 'pt' ? 'Iniciar conversa' : lang === 'es' ? 'Iniciar conversación' : lang === 'ar' ? 'بدء المحادثة' : 'Start chat'}
-            </button>
-            <p class="response-text">${config.branding.responseTimeText || 'Estamos prontos para responder suas perguntas.'}</p>
+            <div class="header-buttons">
+                <button class="header-button close-button" title="Fechar">×</button>
+                <button class="header-button expand-button" title="Expandir/Contrair">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
+                    </svg>
+                </button>
+            </div>
         </div>
         <div class="chat-interface">
             <div class="chat-messages"></div>
@@ -643,8 +715,16 @@
                     </svg>
                 </button>
             </div>
-            <div class="chat-footer">
-            </div>
+        </div>
+        <div class="new-conversation">
+            <p class="welcome-text">${config.branding.welcomeText || 'Como posso ajudar?'}</p>
+            <button class="new-chat-btn">
+                <svg class="message-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                    <path d="M12 2C17.5228 2 22 6.47715 22 12C22 17.5228 17.5228 22 12 22C10.249 22 8.50148 21.566 6.90191 20.6992L2 22L3.30075 17.0981C2.43402 15.4985 2 13.751 2 12C2 6.47715 6.47715 2 12 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                </svg>
+                ${lang === 'pt' ? 'Iniciar conversa' : lang === 'es' ? 'Iniciar conversación' : lang === 'ar' ? 'بدء المحادثة' : 'Start chat'}
+            </button>
+            <p class="response-text">${config.branding.responseTimeText || 'Estamos prontos para responder suas perguntas.'}</p>
         </div>
     `;
     
@@ -1063,13 +1143,31 @@
         html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
         
         // Processar listas ordenadas em uma única passagem
-        html = html.replace(/(?:^\d+\.\s(.+)$\n?)+/gm, function(match) {
-            return '<ol>' + match.replace(/^\d+\.\s(.+)$/gm, '<li>$1</li>') + '</ol>';
+        html = html.replace(/(?:^\d+\.\s(.+)(?:\n|$))+/gm, function(match) {
+            const items = match.split('\n').filter(line => line.trim());
+            let counter = 1;
+            return '<ol>' + items.map(item => {
+                // Extrair o número original da lista
+                const originalNumber = parseInt(item.match(/^(\d+)\./)[1], 10);
+                // Se houver um salto na numeração, atualizar o contador
+                if (originalNumber > counter) {
+                    counter = originalNumber;
+                }
+                const content = item.replace(/^\d+\.\s+/, '');
+                // Usar o valor do contador para a numeração
+                const li = `<li value="${counter}">${content}</li>`;
+                counter++;
+                return li;
+            }).join('') + '</ol>';
         });
         
         // Processar listas não ordenadas em uma única passagem
-        html = html.replace(/(?:^[\*\-]\s(.+)$\n?)+/gm, function(match) {
-            return '<ul>' + match.replace(/^[\*\-]\s(.+)$/gm, '<li>$1</li>') + '</ul>';
+        html = html.replace(/(?:^[\*\-]\s(.+)(?:\n|$))+/gm, function(match) {
+            const items = match.split('\n').filter(line => line.trim());
+            return '<ul>' + items.map(item => {
+                const content = item.replace(/^[\*\-]\s+/, '');
+                return `<li>${content}</li>`;
+            }).join('') + '</ul>';
         });
         
         // Processar quebras de linha
@@ -1238,9 +1336,11 @@
         const data = {
             action: "loadPreviousSession",
             sessionId: currentSessionId,
-            route: config.webhook.route,
+            route: config.webhook.route || 'general',
             metadata: {
-                userId: ""
+                userId: "",
+                timestamp: new Date().toISOString(),
+                language: lang
             }
         };
         
@@ -1248,7 +1348,7 @@
         showTypingIndicator();
         
         try {
-            // Com nossa sobrescrita do fetch, isso nunca vai falhar
+            debug('Iniciando nova conversa:', data);
             const response = await fetch(config.webhook.url, {
                 method: 'POST',
                 headers: {
@@ -1258,16 +1358,27 @@
                 body: JSON.stringify(data)
             });
             
+            debug('Resposta do webhook - Status:', response.status);
             let message = getTranslatedMessage('fallback');
             
             try {
-                const responseData = await response.json();
-                if (Array.isArray(responseData) && responseData.length > 0 && responseData[0].output) {
-                    message = responseData[0].output;
-                } else if (responseData.output) {
-                    message = responseData.output;
+                const responseText = await response.text();
+                debug('Resposta do webhook - Texto:', responseText);
+                
+                if (responseText && responseText.trim()) {
+                    const responseData = JSON.parse(responseText);
+                    debug('Resposta do webhook - JSON:', responseData);
+                    
+                    if (Array.isArray(responseData) && responseData.length > 0 && responseData[0].output) {
+                        message = responseData[0].output;
+                    } else if (responseData.output) {
+                        message = responseData.output;
+                    } else if (typeof responseData === 'string') {
+                        message = responseData;
+                    }
                 }
             } catch (error) {
+                debug('Erro ao processar resposta:', error, true);
                 message = getTranslatedMessage('fallback');
             }
 
@@ -1285,7 +1396,7 @@
             
             return message;
         } catch (error) {
-            // Esse catch nunca deve ser executado com nossa sobrescrita de fetch
+            debug('Erro ao iniciar conversa:', error, true);
             hideTypingIndicator();
             
             const fallbackMessage = getTranslatedMessage('fallback');
@@ -1301,13 +1412,17 @@
     }
     
     async function sendMessage(message) {
+        if (!message || message.trim() === '') return;
+
         const messageData = {
             action: "sendMessage",
             sessionId: currentSessionId,
-            route: config.webhook.route,
+            route: config.webhook.route || 'general',
             chatInput: message,
             metadata: {
-                userId: ""
+                userId: "",
+                timestamp: new Date().toISOString(),
+                language: lang
             }
         };
 
@@ -1322,6 +1437,7 @@
         showTypingIndicator();
 
         try {
+            debug('Enviando mensagem para webhook:', messageData);
             const response = await fetch(config.webhook.url, {
                 method: 'POST',
                 headers: {
@@ -1330,33 +1446,44 @@
                 },
                 body: JSON.stringify(messageData)
             });
-            
+
+            debug('Resposta do webhook - Status:', response.status);
             let responseMessage = getTranslatedMessage('processing');
             
+            // Verificar se a resposta é válida
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            // Tentar ler o texto da resposta primeiro
+            const responseText = await response.text();
+            debug('Resposta do webhook - Texto:', responseText);
+
             try {
-                const data = await response.json();
-                
-                if (Array.isArray(data) && data.length > 0) {
-                    if (data[0].output) {
-                        responseMessage = data[0].output;
-                    } else if (data[0].image_url) {
-                        // Se temos uma URL de imagem direta na resposta
-                        responseMessage = data[0].image_url;
+                // Tentar fazer o parse do JSON apenas se houver conteúdo
+                if (responseText && responseText.trim()) {
+                    const data = JSON.parse(responseText);
+                    debug('Resposta do webhook - JSON:', data);
+                    
+                    // Verificar diferentes formatos possíveis de resposta
+                    if (data.output) {
+                        responseMessage = data.output;
+                    } else if (data.data && Array.isArray(data.data) && data.data.length > 0) {
+                        if (data.data[0].output) {
+                            responseMessage = data.data[0].output;
+                        }
+                    } else if (typeof data === 'string') {
+                        responseMessage = data;
+                    } else {
+                        debug('Resposta em formato desconhecido:', data);
+                        responseMessage = getTranslatedMessage('fallback');
                     }
-                } else if (data.output) {
-                    responseMessage = data.output;
-                } else if (data.image_url) {
-                    // Se temos uma URL de imagem direta na resposta
-                    responseMessage = data.image_url;
-                }
-                
-                // Verificar se a resposta contém URLs de imagem
-                const imageUrls = extractImageUrls(responseMessage);
-                if (imageUrls.length > 0) {
-                    console.log('[n8n Chat Widget] URLs de imagem encontradas:', imageUrls);
+                } else {
+                    debug('Resposta vazia do webhook');
+                    responseMessage = getTranslatedMessage('fallback');
                 }
             } catch (error) {
-                console.log('[n8n Chat Widget] Erro ao processar resposta:', error);
+                debug('Erro ao processar JSON da resposta:', error, true);
                 responseMessage = getTranslatedMessage('fallback');
             }
             
@@ -1366,6 +1493,7 @@
             // Mostrar a resposta do bot
             displayBotMessage(responseMessage);
         } catch (error) {
+            debug('Erro na chamada do webhook:', error, true);
             hideTypingIndicator();
             displayBotMessage(getTranslatedMessage('fallback'));
         }
@@ -1386,6 +1514,16 @@
         return urls;
     }
 
+    // Função para verificar se uma string é uma URL válida
+    function isValidUrl(string) {
+        try {
+            new URL(string);
+            return true;
+        } catch (_) {
+            return false;
+        }
+    }
+
     // Função para processar objetos de ação rápida na mensagem
     function processQuickActions(text) {
         if (!text) return { text: '', hasQuickActions: false };
@@ -1397,13 +1535,23 @@
         
         // Processar links de ação rápida - [texto](action:mensagem) ou [texto](acao:mensagem)
         processedText = processedText.replace(/\[([^\]]+)\]\((action|acao):([^)]+)\)/g, (match, text, actionType, action) => {
-            links.push({ text, action });
+            // Verificar se a ação é uma URL
+            if (isValidUrl(action)) {
+                buttons.push({ text, action, type: 'external' });
+            } else {
+                links.push({ text, action });
+            }
             return ''; // Remover o link do texto
         });
         
         // Processar botões - [{button:texto|mensagem}] ou [{botao:texto|mensagem}]
         processedText = processedText.replace(/\[\{(button|botao):([^|]+)\|([^}]+)\}\]/g, (match, buttonType, text, action) => {
-            buttons.push({ text, action });
+            // Verificar se a ação é uma URL
+            if (isValidUrl(action)) {
+                buttons.push({ text, action, type: 'external' });
+            } else {
+                buttons.push({ text, action, type: 'normal' });
+            }
             return ''; // Remover o botão do texto
         });
         
@@ -1411,7 +1559,7 @@
         processedText = processedText.replace(/\[\{(list|lista):([^|]+)\|((?:[^|:]+:[^|:]+\|?)+)\}\]/g, (match, listType, title, optionsText) => {
             const options = optionsText.split('|').map(option => {
                 const [text, action] = option.split(':');
-                return { text, action };
+                return { text, action, type: isValidUrl(action) ? 'external' : 'normal' };
             });
             selectOptions.push({ title, options });
             return ''; // Remover a lista do texto
@@ -1443,8 +1591,6 @@
             
             quickActions.links.forEach(link => {
                 const linkHTML = `<a class="quick-action-link" data-action="${link.action}">${link.text}</a>`;
-                // Encontrar a posição ideal para inserir o link
-                // Para simplificar, adicionamos ao final do conteúdo
                 newContent += ' ' + linkHTML;
             });
             
@@ -1461,16 +1607,17 @@
             if (quickActions.buttons.length > 0 && quickActions.selectOptions.length === 0) {
                 quickActions.buttons.slice(0, maxButtons).forEach(button => {
                     const buttonElement = document.createElement('button');
-                    buttonElement.className = 'quick-action-button';
+                    buttonElement.className = `quick-action-button ${button.type === 'external' ? 'external' : ''}`;
                     buttonElement.textContent = button.text;
                     buttonElement.dataset.action = button.action;
+                    buttonElement.dataset.type = button.type;
                     container.appendChild(buttonElement);
                 });
             }
             
             // Adicionar lista de seleção (apenas uma, se não houver botões)
             if (quickActions.selectOptions.length > 0 && quickActions.buttons.length === 0) {
-                const selectOption = quickActions.selectOptions[0]; // Pegar apenas a primeira lista
+                const selectOption = quickActions.selectOptions[0];
                 const selectElement = document.createElement('select');
                 selectElement.className = 'quick-action-select';
                 
@@ -1487,6 +1634,7 @@
                     const optionElement = document.createElement('option');
                     optionElement.value = option.action;
                     optionElement.textContent = option.text;
+                    optionElement.dataset.type = option.type;
                     selectElement.appendChild(optionElement);
                 });
                 
@@ -1506,8 +1654,14 @@
         element.querySelectorAll('.quick-action-button').forEach(button => {
             button.addEventListener('click', function() {
                 const action = this.dataset.action;
+                const type = this.dataset.type;
+                
                 if (action) {
-                    sendMessage(action);
+                    if (type === 'external') {
+                        window.open(action, '_blank');
+                    } else {
+                        sendMessage(action);
+                    }
                 }
             });
         });
@@ -1527,8 +1681,15 @@
         element.querySelectorAll('.quick-action-select').forEach(select => {
             select.addEventListener('change', function() {
                 const action = this.value;
+                const selectedOption = this.options[this.selectedIndex];
+                const type = selectedOption.dataset.type;
+                
                 if (action) {
-                    sendMessage(action);
+                    if (type === 'external') {
+                        window.open(action, '_blank');
+                    } else {
+                        sendMessage(action);
+                    }
                     // Resetar a seleção após enviar a mensagem
                     this.selectedIndex = 0;
                 }
@@ -1536,12 +1697,11 @@
         });
     }
 
-    // Adicionar um handler de eventos mais robusto para o botão "new-chat-btn"
+    // Modificar o handler do botão new-chat-btn
     newChatBtn.addEventListener('click', function(e) {
         e.preventDefault();
         
-        // Sempre mostrar a interface de chat, independentemente de erros
-        chatContainer.querySelector('.brand-header').style.display = 'none';
+        // Apenas esconder a tela de nova conversa, mantendo o cabeçalho
         chatContainer.querySelector('.new-conversation').style.display = 'none';
         chatInterface.classList.add('active');
         
@@ -1618,6 +1778,12 @@
             debug('Botão de fechar clicado');
             chatContainer.classList.remove('open');
         });
+    });
+
+    // Adicionar handlers para os novos botões
+    const expandButton = chatContainer.querySelector('.expand-button');
+    expandButton.addEventListener('click', () => {
+        chatContainer.classList.toggle('expanded');
     });
 
     // Expor método de debug global
