@@ -1,4 +1,4 @@
-// Chat Widget Script
+// Chat Widget Script Version 0.4.0
 (function() {
     // Limpar qualquer instância anterior do widget
     function cleanupExistingWidget() {
