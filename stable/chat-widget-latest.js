@@ -1,4 +1,4 @@
-// Chat Widget Script Version 0.4.2
+// Chat Widget Script Version 0.4.3
 (function() {
     // Limpar qualquer instância anterior do widget
     function cleanupExistingWidget() {
@@ -1966,7 +1966,8 @@
     function createProactivePrompt() {
         if (!config.proactivePrompt.enabled || proactivePromptElement) return;
 
-        const promptMessage = getTranslatedMessage('proactiveMessage');
+        // Usar a nova função para obter a mensagem correta
+        const promptMessage = getProactiveMessage(); 
         
         proactivePromptElement = document.createElement('div');
         proactivePromptElement.className = `proactive-prompt${config.style.position === 'left' ? ' position-left' : ''}`;
@@ -2041,6 +2042,29 @@
         const finalMessage = userGreetingForLang || userGreetingForEn || defaultGreetingForLang || defaultGreetingForEn || fallbackMsg;
         
         debug('[getGreetingMessage] Mensagem final escolhida:', finalMessage);
+        return finalMessage;
+    }
+
+    // Função para obter mensagem do prompt proativo traduzida (NOVA)
+    function getProactiveMessage() {
+        const userLang = lang || 'en';
+        const userMsgForLang = config.proactivePrompt.message[userLang];
+        const userMsgForEn = config.proactivePrompt.message['en'];
+        const defaultMsgForLang = defaultConfig.proactivePrompt.message[userLang];
+        const defaultMsgForEn = defaultConfig.proactivePrompt.message['en'];
+
+        // --- DEBUG ---
+        debug(`[getProactiveMessage] Idioma detectado: ${userLang}`);
+        debug(`[getProactiveMessage] Mensagem do usuário para '${userLang}':`, userMsgForLang);
+        debug(`[getProactiveMessage] Mensagem do usuário para 'en':`, userMsgForEn);
+        debug(`[getProactiveMessage] Mensagem padrão para '${userLang}':`, defaultMsgForLang);
+        debug(`[getProactiveMessage] Mensagem padrão para 'en':`, defaultMsgForEn);
+        // --- FIM DEBUG ---
+
+        // Prioridade: 1. Usuário Lang -> 2. Usuário EN -> 3. Default Lang -> 4. Default EN
+        const finalMessage = userMsgForLang || userMsgForEn || defaultMsgForLang || defaultMsgForEn || 'Chat with us!'; // Último fallback simples
+
+        debug('[getProactiveMessage] Mensagem final escolhida:', finalMessage);
         return finalMessage;
     }
 })();
