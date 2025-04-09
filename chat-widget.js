@@ -275,9 +275,8 @@
             position: fixed;
             bottom: 20px;
             right: 20px;
-            width: 70px;
-            height: 70px;
-            border-radius: 35px;
+            border-radius: 50%;
+            padding: 10px;
             background: linear-gradient(135deg, var(--chat--color-primary) 0%, var(--chat--color-secondary) 100%);
             color: white; /* SVG will inherit this color via fill:currentColor */
             border: none;

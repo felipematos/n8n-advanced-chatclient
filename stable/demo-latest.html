@@ -415,10 +415,10 @@
             // Carregar o script do widget
             const script = document.createElement('script');
             script.id = 'n8n-chat-widget-script';
-            script.src = 'chat-widget.js';
+            script.src = 'chat-widget-latest.js' || 'chat-widget.js';
             script.defer = true; // Adicionado defer
             script.onerror = function() { // Adicionado onerror
-                console.error('Failed to load chat-widget.js!');
+                console.error('Failed to load '+ script.src +'!');
                 alert('Error loading the chat widget script. Check the console and script path.');
             };
             document.body.appendChild(script);
@@ -451,7 +451,7 @@
             return `<script>
   window.ChatWidgetConfig = ${configString};
 <\/script>
-<script src="https://felipematos.github.io/n8n-advanced-chatclient/stable/chat-widget.js" defer><\/script>`;
+<script src="https://felipematos.github.io/n8n-advanced-chatclient/stable/chat-widget-latest.js" defer><\/script>`;
         }
 
         generateCodeBtn.addEventListener('click', () => {
