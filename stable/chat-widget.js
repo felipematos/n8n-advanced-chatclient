@@ -1,4 +1,4 @@
-// Chat Widget Script Version 0.4.0
+// Chat Widget Script Version 0.4.1
 (function() {
     // Limpar qualquer instância anterior do widget
     function cleanupExistingWidget() {
@@ -271,20 +271,20 @@
             transform: scale(1.05);
         }
 
-        .n8n-chat-widget .chat-toggle {
+        body .n8n-chat-widget .chat-toggle {
             position: fixed;
             bottom: 20px;
             right: 20px;
-            width: 70px; /* Increase parent button size */
-            height: 70px; /* Increase parent button size */
-            border-radius: 35px; /* Adjust border-radius */
+            width: 70px;
+            height: 70px;
+            border-radius: 35px;
             background: linear-gradient(135deg, var(--chat--color-primary) 0%, var(--chat--color-secondary) 100%);
             color: white; /* SVG will inherit this color via fill:currentColor */
             border: none;
             cursor: pointer;
             box-shadow: 0 4px 12px rgba(8, 10, 86, 0.3);
-            z-index: 1000;
-            transition: transform 0.3s;
+            z-index: 1001;
+            transition: all 0.2s ease-in-out;
             display: flex;
             align-items: center;
             justify-content: center;
@@ -299,9 +299,9 @@
             transform: scale(1.05);
         }
 
-        .n8n-chat-widget .chat-toggle svg {
-            width: 45px; 
-            height: 45px; 
+        body .n8n-chat-widget .chat-toggle svg {
+            width: 35px; 
+            height: 35px; 
             fill: currentColor;
         }
 
