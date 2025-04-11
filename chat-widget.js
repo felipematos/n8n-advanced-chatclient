@@ -1,4 +1,4 @@
-// Chat Widget Script
+// Chat Widget Script Version 0.4.4
 (function() {
     // Limpar qualquer instância anterior do widget
     function cleanupExistingWidget() {
@@ -690,11 +690,26 @@
     styleSheet.textContent = styles;
     document.head.appendChild(styleSheet);
 
+    // Define default messages *before* defaultConfig uses them
+    const defaultProactiveMessages = {
+        en: "Chat with our AI now and resolve all your doubts!",
+        pt: "Converse com nossa IA agora e resolva todas as suas dúvidas!",
+        es: "¡Chatea con nuestra IA ahora y resuelve todas tus dudas!",
+        ar: "تحدث مع الذكاء الاصطناعي الخاص بنا الآن وحل جميع شكوكك!"
+    };
+
+    const defaultGreetingMessages = {
+        en: "Hi! How can I help you today?",
+        pt: "Olá! Como posso ajudar você hoje?",
+        es: "¡Hola! ¿Cómo puedo ayudarte hoy?",
+        ar: "مرحباً! كيف يمكنني مساعدتك اليوم?"
+    };
+
     // Default configuration
     const defaultConfig = {
         webhook: {
-            url: '',
-            route: ''
+            url: null,
+            route: 'general'
         },
         branding: {
             logo: '',
@@ -711,31 +726,52 @@
             secondaryColor: '#0b0f7b',
             position: 'right',
             backgroundColor: '#ffffff',
-            fontColor: '#333333'
+            fontColor: '#333333',
+            fontSize: 1, // Default font size (1: sm, 2: md, 3: lg, 4: xl)
         },
+        debug: false,
         proactivePrompt: {
             enabled: false,
-            delay: 10000, // 10 segundos
-            message: {} // Será preenchido com traduções
+            delay: 10000,
+            message: defaultProactiveMessages // Use the predefined object
         },
         skipWelcomeScreen: false,
-        greetingMessage: {} // Será preenchido com traduções
-    };
-
-    // Preencher mensagens padrão do prompt proativo
-    defaultConfig.proactivePrompt.message = {
-        en: "Chat with our AI now and resolve all your doubts!",
-        pt: "Converse com nossa IA agora e resolva todas as suas dúvidas!",
-        es: "¡Chatea con nuestra IA ahora y resuelve todas tus dudas!",
-        ar: "تحدث مع الذكاء الاصطناعي الخاص بنا الآن وحل جميع شكوكك!"
-    };
-
-    // Preencher mensagens padrão de saudação
-    defaultConfig.greetingMessage = {
-        en: "Hi! How can I help you today?",
-        pt: "Olá! Como posso ajudar você hoje?",
-        es: "¡Hola! ¿Cómo puedo ayudarte hoy?",
-        ar: "مرحباً! كيف يمكنني مساعدتك اليوم؟"
+        greetingMessage: defaultGreetingMessages, // Use the predefined object
+        expandedView: false, // Default expanded view state
+        languageTexts: { // Built-in translations - Now they can safely reference the predefined messages
+            en: {
+                newConversation: "New Conversation",
+                connecting: "Hi! Connecting you...",
+                fallback: "Hi! How can I help?",
+                processing: "Thank you for your message. We're processing it and will respond shortly.",
+                error: "Thank you for your message. How can I help you further?",
+                proactiveMessage: defaultProactiveMessages['en']
+            },
+            pt: {
+                newConversation: "Nova Conversa",
+                connecting: "Olá! Estamos conectando você...",
+                fallback: "Olá! Como posso ajudar?",
+                processing: "Obrigado pela sua mensagem. Estamos processando e responderemos em breve.",
+                error: "Obrigado pela sua mensagem. Como posso ajudar mais?",
+                proactiveMessage: defaultProactiveMessages['pt']
+            },
+            es: {
+                newConversation: "Nueva Conversación",
+                connecting: "¡Hola! Conectándote...",
+                fallback: "¡Hola! ¿Cómo puedo ayudar?",
+                processing: "Gracias por tu mensaje. Lo estamos procesando y responderemos pronto.",
+                error: "Gracias por tu mensaje. ¿Cómo puedo ayudarte más?",
+                proactiveMessage: defaultProactiveMessages['es']
+            },
+            ar: {
+                newConversation: "محادثة جديدة",
+                connecting: "مرحباً! جاري توصيلك...",
+                fallback: "مرحباً! كيف يمكنني المساعدة؟",
+                processing: "شكراً لرسالتك. نحن نعالجها وسنرد قريباً.",
+                error: "شكراً لرسالتك. كيف يمكنني المساعدة أكثر؟",
+                proactiveMessage: defaultProactiveMessages['ar']
+            }
+        }
     };
 
     // Definir 'lang' mais cedo para estar disponível
@@ -753,7 +789,9 @@
             proactivePrompt: { ...defaultConfig.proactivePrompt, ...(window.ChatWidgetConfig.proactivePrompt || {}) },
             // Mesclar novas configurações
             skipWelcomeScreen: typeof window.ChatWidgetConfig.skipWelcomeScreen === 'boolean' ? window.ChatWidgetConfig.skipWelcomeScreen : defaultConfig.skipWelcomeScreen,
-            greetingMessage: { ...defaultConfig.greetingMessage, ...(window.ChatWidgetConfig.greetingMessage || {}) }
+            greetingMessage: { ...defaultConfig.greetingMessage, ...(window.ChatWidgetConfig.greetingMessage || {}) },
+            expandedView: window.ChatWidgetConfig.expandedView || defaultConfig.expandedView,
+            languageTexts: { ...defaultConfig.languageTexts, ...(window.ChatWidgetConfig.languageTexts || {}) }
         } : defaultConfig;
 
     // --- DEBUG --- Logar a configuração mesclada
@@ -1452,10 +1490,16 @@
                 language: lang
             }
         };
-        
-        // Mostrar indicador de digitação
-        showTypingIndicator();
-        
+
+        // Remove any existing initial message (like "connecting...")
+        const initialMessageDiv = messagesContainer.querySelector('.chat-message.bot');
+        if (initialMessageDiv) {
+            initialMessageDiv.remove();
+        }
+
+        // Show typing indicator while loading
+        const typingIndicator = showTypingIndicator(); // Keep reference
+
         try {
             debug('Iniciando nova conversa:', data);
             const response = await fetch(config.webhook.url, {
@@ -1466,63 +1510,44 @@
                 },
                 body: JSON.stringify(data)
             });
-            
+
             debug('Resposta do webhook - Status:', response.status);
-            let message = getTranslatedMessage('fallback');
-            
+            // Note: We don't use the response content directly for the *greeting* here.
+            // The greeting comes from config or defaults.
+
             try {
+                // We still need to consume the response body even if not using its content for greeting
                 const responseText = await response.text();
-                debug('Resposta do webhook - Texto:', responseText);
-                
+                debug('Resposta inicial do webhook (consumida):', responseText);
                 if (responseText && responseText.trim()) {
-                    const responseData = JSON.parse(responseText);
-                    debug('Resposta do webhook - JSON:', responseData);
-                    
-                    if (Array.isArray(responseData) && responseData.length > 0 && responseData[0].output) {
-                        message = responseData[0].output;
-                    } else if (responseData.output) {
-                        message = responseData.output;
-                    } else if (typeof responseData === 'string') {
-                        message = responseData;
-                    }
+                     const responseData = JSON.parse(responseText);
+                     debug('Resposta JSON inicial do webhook (consumida):', responseData);
+                     // Potentially handle historical messages here in the future if needed
                 }
             } catch (error) {
-                debug('Erro ao processar resposta:', error, true);
-                message = getTranslatedMessage('fallback');
+                 debug('Erro ao processar resposta inicial do webhook (ignorado para saudação):', error);
             }
 
-            // Remover o indicador de digitação
-            hideTypingIndicator();
-            
-            // Obter a mensagem de saudação correta
-            message = getGreetingMessage();
-            
-            // --- DEBUG --- Logar a mensagem final a ser usada
-            debug('Mensagem de saudação final a ser exibida:', message);
+            // --- Determine the final greeting message ---
+            const finalGreetingMessage = getGreetingMessage();
+            debug('Mensagem de saudação final a ser exibida:', finalGreetingMessage);
 
-            // Atualizar a mensagem inicial
-            const firstBotMessage = messagesContainer.querySelector('.chat-message.bot');
-            if (firstBotMessage) {
-                firstBotMessage.innerHTML = renderSpecialContent(message);
-            } else {
-                displayBotMessage(message);
-            }
+            // --- Render the final greeting ---
+            hideTypingIndicator(); // Hide indicator *before* showing the actual message
+            displayBotMessage(finalGreetingMessage); // Use the function that handles quick actions
+
             messagesContainer.scrollTop = messagesContainer.scrollHeight;
-            
-            return message;
+            return finalGreetingMessage; // Return the rendered message content
+
         } catch (error) {
             debug('Erro ao iniciar conversa:', error, true);
-            hideTypingIndicator();
-            
-            const fallbackMessage = getGreetingMessage(); // Usar saudação como fallback também
-            const firstBotMessage = messagesContainer.querySelector('.chat-message.bot');
-            if (firstBotMessage) {
-                firstBotMessage.textContent = fallbackMessage;
-            } else {
-                displayBotMessage(fallbackMessage);
-            }
-            
-            throw error;
+            hideTypingIndicator(); // Ensure indicator is hidden on error
+
+            // --- Render the fallback greeting on error ---
+            const fallbackMessage = getGreetingMessage();
+            displayBotMessage(fallbackMessage); // Use the function that handles quick actions
+
+            throw error; // Re-throw error if needed
         }
     }
     
@@ -1815,19 +1840,18 @@
     // Modificar o handler do botão new-chat-btn
     newChatBtn.addEventListener('click', function(e) {
         e.preventDefault();
-        
+
         // Apenas esconder a tela de nova conversa, mantendo o cabeçalho
         chatContainer.querySelector('.new-conversation').style.display = 'none';
         chatInterface.classList.add('active');
-        
-        // Adicionar mensagem inicial de boas-vindas enquanto carrega
-        const initialMessage = document.createElement('div');
-        initialMessage.className = 'chat-message bot';
-        initialMessage.textContent = getTranslatedMessage('connecting');
-        messagesContainer.appendChild(initialMessage);
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
-        
-        // Então iniciar a conversa em segundo plano
+
+        // Clear any previous messages if starting fresh
+        messagesContainer.innerHTML = ''; // Clear messages to ensure only the greeting appears
+
+        // *Don't* add the "connecting" message here directly.
+        // Let startNewConversation handle the indicator and final message.
+
+        // Iniciar a conversa (which will show indicator and then the greeting)
         startNewConversation()
             .then(function() {
                 // Focar na caixa de texto após a conversa ser inicializada
@@ -1836,9 +1860,8 @@
                 }, 100);
             })
             .catch(function(error) {
-                debug('Erro ao iniciar conversa:', error, true);
-                // Se houver um erro, substituir a mensagem inicial
-                initialMessage.textContent = getTranslatedMessage('fallback');
+                debug('Erro ao iniciar conversa no click:', error, true);
+                // Error handling inside startNewConversation already displays the fallback greeting.
                 // Reportar erro se existir callback de erro configurado
                 if (typeof config.onError === 'function') {
                     config.onError(error);
@@ -1885,12 +1908,11 @@
                 chatContainer.querySelector('.new-conversation').style.display = 'none';
                 chatInterface.classList.add('active');
 
-                // Adicionar mensagem inicial de conexão
-                const initialMessage = document.createElement('div');
-                initialMessage.className = 'chat-message bot';
-                initialMessage.textContent = getTranslatedMessage('connecting');
-                messagesContainer.appendChild(initialMessage);
-                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                // Clear any previous messages
+                messagesContainer.innerHTML = '';
+
+                // *Don't* add the "connecting" message here directly.
+                // Let startNewConversation handle the indicator and final message.
 
                 startNewConversation()
                     .then(() => {
@@ -1898,15 +1920,25 @@
                     })
                     .catch((error) => {
                         debug('Erro ao iniciar conversa (skip welcome):', error, true);
-                        if (initialMessage) {
-                            initialMessage.textContent = getGreetingMessage();
-                        }
+                        // Error handling inside startNewConversation already displays the fallback greeting.
                         if (typeof config.onError === 'function') config.onError(error);
                         setTimeout(() => textarea.focus(), 100);
                     });
-            } else {
-                // Abertura normal (ou já iniciada se skipWelcome for true)
+            } else if (!isFirstTime) {
+                 // Re-opening an existing chat, just focus
+                 // Ensure chat interface is active if it wasn't already
+                 if (!chatInterface.classList.contains('active')) {
+                    chatContainer.querySelector('.new-conversation').style.display = 'none';
+                    chatInterface.classList.add('active');
+                 }
                 setTimeout(() => textarea.focus(), 100);
+            } else {
+                // Opening for the first time WITHOUT skipWelcomeScreen
+                // Show the welcome screen explicitly if it was hidden
+                chatContainer.querySelector('.new-conversation').style.display = 'block'; // Changed from flex to block if needed
+                chatInterface.classList.remove('active');
+                 // Ensure messages are cleared for a clean welcome screen
+                messagesContainer.innerHTML = '';
             }
         } else {
             // Fechando o chat
@@ -1931,6 +1963,8 @@
     const fontSizeButton = chatContainer.querySelector('.font-size-button'); // Obter o novo botão
     expandButton.addEventListener('click', () => {
         chatContainer.classList.toggle('expanded');
+        // Focus input after expanding/collapsing
+        setTimeout(() => textarea.focus(), 50); 
     });
 
     // Lógica do botão de tamanho de fonte
@@ -1950,6 +1984,8 @@
         const newSizeClass = `font-size-${fontSizes[currentFontSizeIndex]}`;
         widgetContainer.classList.add(newSizeClass);
         debug(`Tamanho da fonte alterado para: ${fontSizes[currentFontSizeIndex]}`);
+        // Focus input after changing font size
+        setTimeout(() => textarea.focus(), 50);
     });
 
     // Expor método de debug global
