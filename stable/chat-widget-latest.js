@@ -714,8 +714,8 @@
         branding: {
             logo: '',
             name: '',
-            welcomeText: '',
-            responseTimeText: '',
+            welcomeText: '', // Now an object in config, but empty here
+            responseTimeText: '', // Now an object in config, but empty here
             poweredBy: {
                 text: '',
                 link: ''
@@ -730,6 +730,8 @@
             fontSize: 1, // Default font size (1: sm, 2: md, 3: lg, 4: xl)
         },
         debug: false,
+        detectLocation: true, // Default for location detection
+        metadata: {}, // Default empty metadata object
         proactivePrompt: {
             enabled: false,
             delay: 10000,
@@ -738,66 +740,103 @@
         skipWelcomeScreen: false,
         greetingMessage: defaultGreetingMessages, // Use the predefined object
         expandedView: false, // Default expanded view state
-        languageTexts: { // Built-in translations - Now they can safely reference the predefined messages
-            en: {
-                newConversation: "New Conversation",
-                connecting: "Hi! Connecting you...",
-                fallback: "Hi! How can I help?",
-                processing: "Thank you for your message. We're processing it and will respond shortly.",
-                error: "Thank you for your message. How can I help you further?",
-                proactiveMessage: defaultProactiveMessages['en']
-            },
-            pt: {
-                newConversation: "Nova Conversa",
-                connecting: "Olá! Estamos conectando você...",
-                fallback: "Olá! Como posso ajudar?",
-                processing: "Obrigado pela sua mensagem. Estamos processando e responderemos em breve.",
-                error: "Obrigado pela sua mensagem. Como posso ajudar mais?",
-                proactiveMessage: defaultProactiveMessages['pt']
-            },
-            es: {
-                newConversation: "Nueva Conversación",
-                connecting: "¡Hola! Conectándote...",
-                fallback: "¡Hola! ¿Cómo puedo ayudar?",
-                processing: "Gracias por tu mensaje. Lo estamos procesando y responderemos pronto.",
-                error: "Gracias por tu mensaje. ¿Cómo puedo ayudarte más?",
-                proactiveMessage: defaultProactiveMessages['es']
-            },
-            ar: {
-                newConversation: "محادثة جديدة",
-                connecting: "مرحباً! جاري توصيلك...",
-                fallback: "مرحباً! كيف يمكنني المساعدة؟",
-                processing: "شكراً لرسالتك. نحن نعالجها وسنرد قريباً.",
-                error: "شكراً لرسالتك. كيف يمكنني المساعدة أكثر؟",
-                proactiveMessage: defaultProactiveMessages['ar']
-            }
-        }
+        languageTexts: {} // Initialize as empty, will be populated below
     };
 
-    // Definir 'lang' mais cedo para estar disponível
+    // Definir 'lang' mais cedo para estar disponível e detectar variações
     const url = window.location.href;
-    const langMatch = url.match(/\/(en|pt|es|ar)(\/|$)/);
-    const lang = langMatch ? langMatch[1] : 'en';
+    // Regex para encontrar /<lang>-<region>/ ou /<lang>/ (ex: /pt-br/, /en-US/, /pt/)
+    const langMatch = url.match(/\/([a-z]{2})(?:[-_]([a-z]{2}))?\/?(?:\?|#|$)/i);
+    const detectedLang = langMatch ? langMatch[0].replace(/[/\\\?#]/g, '').toLowerCase() : 'en'; // ex: "pt-br", "en", "es"
+    const baseLang = langMatch ? langMatch[1].toLowerCase() : 'en'; // ex: "pt", "en", "es"
 
     // Merge user config with defaults
-    const config = window.ChatWidgetConfig ? 
+    const config = window.ChatWidgetConfig ?
         {
             webhook: { ...defaultConfig.webhook, ...window.ChatWidgetConfig.webhook },
             branding: { ...defaultConfig.branding, ...window.ChatWidgetConfig.branding },
             style: { ...defaultConfig.style, ...window.ChatWidgetConfig.style },
-            // Mesclar configuração do prompt proativo
             proactivePrompt: { ...defaultConfig.proactivePrompt, ...(window.ChatWidgetConfig.proactivePrompt || {}) },
-            // Mesclar novas configurações
             skipWelcomeScreen: typeof window.ChatWidgetConfig.skipWelcomeScreen === 'boolean' ? window.ChatWidgetConfig.skipWelcomeScreen : defaultConfig.skipWelcomeScreen,
             greetingMessage: { ...defaultConfig.greetingMessage, ...(window.ChatWidgetConfig.greetingMessage || {}) },
             expandedView: window.ChatWidgetConfig.expandedView || defaultConfig.expandedView,
-            languageTexts: { ...defaultConfig.languageTexts, ...(window.ChatWidgetConfig.languageTexts || {}) }
+            languageTexts: { ...defaultConfig.languageTexts, ...(window.ChatWidgetConfig.languageTexts || {}) }, // Merge languageTexts as well
+            metadata: { ...defaultConfig.metadata, ...(window.ChatWidgetConfig.metadata || {}) }, // Merge metadata
+            detectLocation: typeof window.ChatWidgetConfig.detectLocation === 'boolean' ? window.ChatWidgetConfig.detectLocation : defaultConfig.detectLocation // Merge detectLocation
         } : defaultConfig;
 
+    // Mensagens traduzidas padrão (usadas como último fallback dentro de getText)
+    const defaultLanguageTexts = {
+        en: {
+            connecting: "Hi! Connecting you...",
+            fallback: "Hi! How can I help?",
+            processing: "Thank you for your message. We're processing it and will respond shortly.",
+            error: "Thank you for your message. How can I help you further?",
+            inputPlaceholder: "Type your message...",
+            startChat: "Start chat",
+            defaultResponseTime: "We typically respond right away",
+            welcomeText: "Hi 👋, how can we help?"
+        },
+        pt: {
+            connecting: "Olá! Estamos conectando você...",
+            fallback: "Olá! Como posso ajudar?",
+            processing: "Obrigado pela sua mensagem. Estamos processando e responderemos em breve.",
+            error: "Obrigado pela sua mensagem. Como posso ajudar mais?",
+            inputPlaceholder: "Digite sua mensagem...",
+            startChat: "Iniciar conversa",
+            defaultResponseTime: "Normalmente respondemos imediatamente",
+            welcomeText: "Oi 👋, como podemos ajudar?"
+        },
+        es: {
+            connecting: "¡Hola! Conectándote...",
+            fallback: "¡Hola! ¿Cómo puedo ayudar?",
+            processing: "Gracias por tu mensaje. Lo estamos procesando y responderemos pronto.",
+            error: "Gracias por tu mensaje. ¿Cómo puedo ayudarte más?",
+            inputPlaceholder: "Escribe tu mensaje...",
+            startChat: "Iniciar conversación",
+            defaultResponseTime: "Solemos responder de inmediato",
+            welcomeText: "¡Hola 👋! ¿Cómo podemos ayudar?"
+        },
+        ar: {
+            connecting: "مرحباً! جاري توصيلك...",
+            fallback: "مرحباً! كيف يمكنني المساعدة؟",
+            processing: "شكراً لرسالتك. نحن نعالجها وسنرد قريباً.",
+            error: "شكراً لرسالتك. كيف يمكنني المساعدة أكثر؟",
+            inputPlaceholder: "اكتب رسالتك...",
+            startChat: "بدء المحادثة",
+            defaultResponseTime: "عادة ما نرد على الفور",
+            welcomeText: "مرحباً 👋! كيف يمكننا المساعدة؟"
+        }
+    };
+     // Ensure defaultConfig.languageTexts points to the default translations
+     // Assign it here AFTER defaultConfig is fully defined.
+     defaultConfig.languageTexts = defaultLanguageTexts;
+
+    // --- Helper Function to Get Text from languageTexts (Simplified) ---
+    function getText(key, fallbackValue = '') {
+        const userTexts = config.languageTexts;
+        const defaultTexts = defaultConfig.languageTexts; // Assumes defaultConfig.languageTexts is set below
+
+        // Check User Config
+        if (userTexts) {
+            if (userTexts[detectedLang] && userTexts[detectedLang][key] !== undefined) return userTexts[detectedLang][key];
+            if (userTexts[baseLang] && userTexts[baseLang][key] !== undefined) return userTexts[baseLang][key];
+            if (userTexts['en'] && userTexts['en'][key] !== undefined) return userTexts['en'][key];
+        }
+        // Check Default Config
+        if (defaultTexts) {
+             if (defaultTexts[detectedLang] && defaultTexts[detectedLang][key] !== undefined) return defaultTexts[detectedLang][key];
+             if (defaultTexts[baseLang] && defaultTexts[baseLang][key] !== undefined) return defaultTexts[baseLang][key];
+             if (defaultTexts['en'] && defaultTexts['en'][key] !== undefined) return defaultTexts['en'][key];
+        }
+        // Fallback
+        return fallbackValue;
+    }
+
     // --- DEBUG --- Logar a configuração mesclada
-    debug('Configuração de saudação mesclada:', config.greetingMessage);
-    // --- DEBUG --- Logar idioma detectado
-    debug('Idioma detectado (lang):', lang);
+    debug('Configuração mesclada final:', config);
+    // --- DEBUG --- Logar idiomas detectados
+    debug(`Idioma detectado (completo): ${detectedLang}, Idioma base: ${baseLang}`);
 
     // Prevent multiple initializations
     if (window.N8NChatWidgetInitialized) return;
@@ -817,6 +856,20 @@
 
     const chatContainer = document.createElement('div');
     chatContainer.className = `chat-container${config.style.position === 'left' ? ' position-left' : ''}`;
+    
+    // Function to get the correct language string from a potentially multi-language object
+    function getBrandingText(brandingField, fallbackKey) {
+        const textSource = config.branding[brandingField];
+        if (typeof textSource === 'string') {
+            return textSource; // Already a simple string
+        } else if (typeof textSource === 'object' && textSource !== null) {
+            // Find the best match: detectedLang -> baseLang -> en
+            return textSource[detectedLang] ?? textSource[baseLang] ?? textSource['en'] ?? getText(fallbackKey, '');
+        } else {
+            // Use getText for fallback if field is missing or not string/object
+            return getText(fallbackKey, '');
+        }
+    }
     
     // Criar conteúdo do chat container diretamente
     let chatContainerHTML = `
@@ -846,7 +899,7 @@
         <div class="chat-interface">
             <div class="chat-messages"></div>
             <div class="chat-input">
-                <textarea placeholder="${lang === 'pt' ? 'Digite sua mensagem...' : lang === 'es' ? 'Escribe tu mensaje...' : lang === 'ar' ? 'اكتب رسالتك...' : 'Type your message...'}" rows="1"></textarea>
+                <textarea placeholder="${getText('inputPlaceholder', 'Type your message...')}" rows="1"></textarea>
                 <button>
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M22 2L11 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
@@ -856,7 +909,7 @@
             </div>
         </div>
         <div class="new-conversation">
-            <p class="welcome-text">${config.branding.welcomeText || 'Como posso ajudar?'}</p>
+            <p class="welcome-text">${getBrandingText('welcomeText', 'welcomeText')}</p>
             <button class="new-chat-btn">
                 <!-- Novo ícone geométrico (ex: quadrado com plus) -->
                 <svg class="message-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -864,9 +917,9 @@
                     <line x1="12" y1="8" x2="12" y2="16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
                     <line x1="8" y1="12" x2="16" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
                 </svg>
-                ${lang === 'pt' ? 'Iniciar conversa' : lang === 'es' ? 'Iniciar conversación' : lang === 'ar' ? 'بدء المحادثة' : 'Start chat'}
+                ${getText('startChat', 'Start chat')}
             </button>
-            <p class="response-text">${config.branding.responseTimeText || 'Estamos prontos para responder suas perguntas.'}</p>
+            <p class="response-text">${getBrandingText('responseTimeText', 'defaultResponseTime')}</p>
         </div>
     `;
     
@@ -1369,41 +1422,12 @@
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
     }
 
-    // Mensagens traduzidas
-    const translations = {
-        en: {
-            connecting: "Hi! Connecting you...",
-            fallback: "Hi! How can I help?",
-            processing: "Thank you for your message. We're processing it and will respond shortly.",
-            error: "Thank you for your message. How can I help you further?",
-            proactiveMessage: defaultConfig.proactivePrompt.message['en'] // Default to English
-        },
-        pt: {
-            connecting: "Olá! Estamos conectando você...",
-            fallback: "Olá! Como posso ajudar?",
-            processing: "Obrigado pela sua mensagem. Estamos processando e responderemos em breve.",
-            error: "Obrigado pela sua mensagem. Como posso ajudar mais?",
-            proactiveMessage: defaultConfig.proactivePrompt.message['pt']
-        },
-        es: {
-            connecting: "¡Hola! Conectándote...",
-            fallback: "¡Hola! ¿Cómo puedo ayudar?",
-            processing: "Gracias por tu mensaje. Lo estamos procesando y responderemos pronto.",
-            error: "Gracias por tu mensaje. ¿Cómo puedo ayudarte más?",
-            proactiveMessage: defaultConfig.proactivePrompt.message['es']
-        },
-        ar: {
-            connecting: "مرحباً! جاري توصيلك...",
-            fallback: "مرحباً! كيف يمكنني المساعدة؟",
-            processing: "شكراً لرسالتك. نحن نعالجها وسنرد قريباً.",
-            error: "شكراً لرسالتك. كيف يمكنني المساعدة أكثر؟",
-            proactiveMessage: defaultConfig.proactivePrompt.message['ar']
-        }
-    };
-
-    // Função para obter mensagem traduzida
+    // Função para obter mensagem traduzida (DEPRECATED - Use getText)
     function getTranslatedMessage(key) {
-        return (translations[lang] && translations[lang][key]) || translations['en'][key];
+        // Log warning about deprecated usage
+        debug(`Deprecated function getTranslatedMessage called for key: ${key}. Use getText instead.`);
+        // Use the new function as a fallback mechanism
+        return getText(key, '');
     }
 
     // Sobrescrita global de fetch para suprimir erros 500
@@ -1429,25 +1453,8 @@
                         status: 200,
                         statusText: "OK",
                         headers: new Headers({ "content-type": "application/json" }),
-                        json: async () => { 
-                            try {
-                                // Tentar obter o corpo original primeiro
-                                const text = await originalClone.text();
-                                if (text && isValidJSON(text)) {
-                                    return JSON.parse(text);
-                                }
-                            } catch (e) { /* silenciar erro */ }
-                            
-                            // Fallback para uma resposta genérica
-                            return { output: getTranslatedMessage('fallback') };
-                        },
-                        text: async () => {
-                            try {
-                                return await originalClone.text();
-                            } catch (e) {
-                                return JSON.stringify({ output: getTranslatedMessage('fallback') });
-                            }
-                        },
+                        json: async () => ({ output: getText('fallback', 'Hi! How can I help?') }),
+                        text: async () => JSON.stringify({ output: getText('fallback', 'Hi! How can I help?') }),
                         clone: function() { return this; }
                     };
                 }
@@ -1467,8 +1474,8 @@
                         status: 200,
                         statusText: "OK",
                         headers: new Headers({ "content-type": "application/json" }),
-                        json: async () => ({ output: getTranslatedMessage('fallback') }),
-                        text: async () => JSON.stringify({ output: getTranslatedMessage('fallback') }),
+                        json: async () => ({ output: getText('fallback', 'Hi! How can I help?') }),
+                        text: async () => JSON.stringify({ output: getText('fallback', 'Hi! How can I help?') }),
                         clone: function() { return this; }
                     };
                 }
@@ -1480,15 +1487,14 @@
 
     async function startNewConversation() {
         currentSessionId = generateUUID();
+        // Get metadata asynchronously first
+        const metadata = await getMetadata();
+
         const data = {
             action: "loadPreviousSession",
             sessionId: currentSessionId,
             route: config.webhook.route || 'general',
-            metadata: {
-                userId: "",
-                timestamp: new Date().toISOString(),
-                language: lang
-            }
+            metadata: metadata // Use the gathered metadata object
         };
 
         // Remove any existing initial message (like "connecting...")
@@ -1554,16 +1560,15 @@
     async function sendMessage(message) {
         if (!message || message.trim() === '') return;
 
+        // Get metadata asynchronously first
+        const metadata = await getMetadata();
+
         const messageData = {
             action: "sendMessage",
             sessionId: currentSessionId,
             route: config.webhook.route || 'general',
             chatInput: message,
-            metadata: {
-                userId: "",
-                timestamp: new Date().toISOString(),
-                language: lang
-            }
+            metadata: metadata // Use the gathered metadata object
         };
 
         // Exibir mensagem do usuário 
@@ -1588,7 +1593,7 @@
             });
 
             debug('Resposta do webhook - Status:', response.status);
-            let responseMessage = getTranslatedMessage('processing');
+            let responseMessage = getText('processing', 'Processing...'); // Use new function
             
             // Verificar se a resposta é válida
             if (!response.ok) {
@@ -1616,15 +1621,15 @@
                         responseMessage = data;
                     } else {
                         debug('Resposta em formato desconhecido:', data);
-                        responseMessage = getTranslatedMessage('fallback');
+                        responseMessage = getText('fallback', 'Hi! How can I help?'); // Use new function
                     }
                 } else {
                     debug('Resposta vazia do webhook');
-                    responseMessage = getTranslatedMessage('fallback');
+                    responseMessage = getText('fallback', 'Hi! How can I help?'); // Use new function
                 }
             } catch (error) {
                 debug('Erro ao processar JSON da resposta:', error, true);
-                responseMessage = getTranslatedMessage('fallback');
+                responseMessage = getText('fallback', 'Hi! How can I help?'); // Use new function
             }
             
             // Remover o indicador de digitação
@@ -1635,7 +1640,7 @@
         } catch (error) {
             debug('Erro na chamada do webhook:', error, true);
             hideTypingIndicator();
-            displayBotMessage(getTranslatedMessage('fallback'));
+            displayBotMessage(getText('error', 'Sorry, something went wrong.')); // Use new function for error message
         }
     }
 
@@ -2056,51 +2061,117 @@
         debug(`Prompt proativo agendado para ${config.proactivePrompt.delay / 1000}s`);
     }
 
-    // Função para obter mensagem de saudação traduzida (REVISADA)
+    // Função para obter mensagem de saudação traduzida (REVISADA - Simplified)
     function getGreetingMessage() {
-        const userLang = lang || 'en'; // Garantir que temos um idioma
-        const userGreetingForLang = config.greetingMessage[userLang];
-        const userGreetingForEn = config.greetingMessage['en'];
-        const defaultGreetingForLang = defaultConfig.greetingMessage[userLang];
-        const defaultGreetingForEn = defaultConfig.greetingMessage['en'];
-        const fallbackMsg = getTranslatedMessage('fallback'); // Último recurso
+        let message;
+        // Priority: User Config (Full > Base > EN) -> Default Config (Full > Base > EN) -> fallback
+        const userMsg = config.greetingMessage;
+        const defaultMsg = defaultConfig.greetingMessage;
 
-        // --- DEBUG DETALHADO ---
-        debug(`[getGreetingMessage] Idioma detectado: ${userLang}`);
-        debug(`[getGreetingMessage] Saudação do usuário para '${userLang}':`, userGreetingForLang);
-        debug(`[getGreetingMessage] Saudação do usuário para 'en':`, userGreetingForEn);
-        debug(`[getGreetingMessage] Saudação padrão para '${userLang}':`, defaultGreetingForLang);
-        debug(`[getGreetingMessage] Saudação padrão para 'en':`, defaultGreetingForEn);
-        debug(`[getGreetingMessage] Mensagem de fallback:`, fallbackMsg);
-        // --- FIM DEBUG ---
+        if (userMsg && userMsg[detectedLang] !== undefined) message = userMsg[detectedLang];
+        else if (userMsg && userMsg[baseLang] !== undefined) message = userMsg[baseLang];
+        else if (userMsg && userMsg['en'] !== undefined) message = userMsg['en'];
+        else if (defaultMsg && defaultMsg[detectedLang] !== undefined) message = defaultMsg[detectedLang];
+        else if (defaultMsg && defaultMsg[baseLang] !== undefined) message = defaultMsg[baseLang];
+        else if (defaultMsg && defaultMsg['en'] !== undefined) message = defaultMsg['en'];
+        else message = "Hi there!"; // Absolute last fallback
 
-        // Prioridade: 1. Usuário Lang -> 2. Usuário EN -> 3. Default Lang -> 4. Default EN -> 5. Fallback Geral
-        const finalMessage = userGreetingForLang || userGreetingForEn || defaultGreetingForLang || defaultGreetingForEn || fallbackMsg;
-        
-        debug('[getGreetingMessage] Mensagem final escolhida:', finalMessage);
-        return finalMessage;
+        debug('[getGreetingMessage] Mensagem final escolhida:', message);
+        return message;
+     }
+
+     // Função para obter mensagem do prompt proativo traduzida (REVISADA - Simplified)
+     function getProactiveMessage() {
+        let message;
+        // Priority: User Config (Full > Base > EN) -> Default Config (Full > Base > EN) -> fallback
+        const userPrompt = config.proactivePrompt?.message; // Use optional chaining
+        const defaultPrompt = defaultConfig.proactivePrompt?.message;
+
+        if (userPrompt && userPrompt[detectedLang] !== undefined) message = userPrompt[detectedLang];
+        else if (userPrompt && userPrompt[baseLang] !== undefined) message = userPrompt[baseLang];
+        else if (userPrompt && userPrompt['en'] !== undefined) message = userPrompt['en'];
+        else if (defaultPrompt && defaultPrompt[detectedLang] !== undefined) message = defaultPrompt[detectedLang];
+        else if (defaultPrompt && defaultPrompt[baseLang] !== undefined) message = defaultPrompt[baseLang];
+        else if (defaultPrompt && defaultPrompt['en'] !== undefined) message = defaultPrompt['en'];
+        else message = "Chat with us!"; // Absolute last fallback
+
+        debug('[getProactiveMessage] Mensagem final escolhida:', message);
+        return message;
+     }
+
+    // --- Location Detection Function ---
+    async function fetchUserLocation() {
+        let locationResult = null; // Store result to dispatch event later
+        try {
+            if (!config.detectLocation) {
+                debug('Location detection is disabled by config.');
+                return null;
+            }
+
+            // Use ipinfo.io for location detection (free tier available)
+            const geoApiUrl = 'https://ipinfo.io/json';
+            debug(`Fetching location from: ${geoApiUrl}`);
+
+            const response = await fetch(geoApiUrl);
+            if (!response.ok) {
+                // Handle potential errors like rate limits or API issues
+                console.error(`Geo API error: ${response.status} - ${response.statusText}`);
+                throw new Error(`Geo API error: ${response.status}`);
+            }
+            const locationData = await response.json();
+            debug('Fetched location data:', locationData);
+
+            // Extract relevant fields (city, country) - Adjust if API changes
+            if (locationData && locationData.city && locationData.country) {
+                 locationResult = { city: locationData.city, country: locationData.country };
+            } else {
+                 console.warn('[n8n Chat Widget] Geo API response missing expected fields (city, country).', locationData);
+                 locationResult = null; // Or set to a partial object if desired
+            }
+
+        } catch (error) {
+            debug('Error fetching user location:', error, true);
+            locationResult = null; // Ensure result is null on error
+        }
+        finally {
+             // Dispatch custom event with the detected location (or null)
+             const event = new CustomEvent('n8nLocationDetected', { detail: locationResult });
+             document.body.dispatchEvent(event);
+             debug('Dispatched n8nLocationDetected event with detail:', locationResult);
+             return locationResult; // Return the result for getMetadata
+        }
     }
 
-    // Função para obter mensagem do prompt proativo traduzida (NOVA)
-    function getProactiveMessage() {
-        const userLang = lang || 'en';
-        const userMsgForLang = config.proactivePrompt.message[userLang];
-        const userMsgForEn = config.proactivePrompt.message['en'];
-        const defaultMsgForLang = defaultConfig.proactivePrompt.message[userLang];
-        const defaultMsgForEn = defaultConfig.proactivePrompt.message['en'];
+    // --- Metadata Gathering Function ---
+    async function getMetadata() {
+        let locationData = null;
+        if (config.detectLocation && !config.metadata?.detectedLocation) { // Only fetch if enabled and not overridden
+            locationData = await fetchUserLocation();
+        }
 
-        // --- DEBUG ---
-        debug(`[getProactiveMessage] Idioma detectado: ${userLang}`);
-        debug(`[getProactiveMessage] Mensagem do usuário para '${userLang}':`, userMsgForLang);
-        debug(`[getProactiveMessage] Mensagem do usuário para 'en':`, userMsgForEn);
-        debug(`[getProactiveMessage] Mensagem padrão para '${userLang}':`, defaultMsgForLang);
-        debug(`[getProactiveMessage] Mensagem padrão para 'en':`, defaultMsgForEn);
-        // --- FIM DEBUG ---
+        // Detect timezone using Intl API if not overridden
+        let timezone = config.metadata?.detectedTimeZone; // Check override first
+        if (!timezone) {
+            try {
+                timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+            } catch (e) {
+                debug('Could not detect browser timezone.', e, true);
+                timezone = null; // Set to null if detection fails
+            }
+        }
 
-        // Prioridade: 1. Usuário Lang -> 2. Usuário EN -> 3. Default Lang -> 4. Default EN
-        const finalMessage = userMsgForLang || userMsgForEn || defaultMsgForLang || defaultMsgForEn || 'Chat with us!'; // Último fallback simples
+        const finalMetadata = {
+            // Priority: Config Override > Detected/Default
+            userId: config.metadata?.userId || '', // Default empty
+            userEmail: config.metadata?.userEmail || '', // Default empty
+            userLanguage: config.metadata?.language || detectedLang, // Default detectedLang
+            baseUrl: config.metadata?.baseUrl || window.location.origin, // Default window origin
+            detectedLocation: config.metadata?.detectedLocation || locationData, // Default fetched data (or null)
+            detectedTimeZone: timezone, // Use detected/overridden timezone
+            timestamp: new Date().toISOString() // Always add current timestamp
+        };
 
-        debug('[getProactiveMessage] Mensagem final escolhida:', finalMessage);
-        return finalMessage;
+        debug('Final metadata object:', finalMetadata);
+        return finalMetadata;
     }
 })();
