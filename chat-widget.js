@@ -1,4 +1,4 @@
-// Chat Widget Script Version 0.4.7
+// Chat Widget Script Version 0.5.0
 (function() {
     // Limpar qualquer instância anterior do widget
     function cleanupExistingWidget() {
@@ -1689,16 +1689,14 @@
             return ''; // Remover o link do texto
         });
         
-        // Processar botões - [{button:texto|mensagem}] ou [{botao:texto|mensagem}]
-        processedText = processedText.replace(/\[\{(button|botao):([^|]+)\|([^}]+)\}\]/g, (match, buttonType, text, action) => {
-            // Verificar se a ação é uma URL
-            if (isValidUrl(action)) {
-                buttons.push({ text, action, type: 'external' });
-            } else {
-                buttons.push({ text, action, type: 'normal' });
-            }
-            return ''; // Remover o botão do texto
+        // Processar botões no formato: [{button|Button text|Text to be sent or url}]
+        processedText = processedText.replace(/\[\{(button|botao)\|([^|}]+)\|([^|}]+)\}\]/gi, (match, buttonType, text, action) => {
+            let isUrl = isValidUrl(action);
+            buttons.push({ text, action, type: isUrl ? 'external' : 'normal' });
+            return '';
         });
+        // Suporte a até 4 botões por mensagem (não limitar aqui, limitar na renderização)
+        // Suporte a outros tipos de objetos pode ser adicionado aqui, se necessário
         
         // Processar listas de seleção - [{list:titulo|opção1:mensagem1|opção2:mensagem2}] ou [{lista:titulo|opção1:mensagem1|opção2:mensagem2}]
         processedText = processedText.replace(/\[\{(list|lista):([^|]+)\|((?:[^|:]+:[^|:]+\|?)+)\}\]/g, (match, listType, title, optionsText) => {
@@ -1756,6 +1754,16 @@
                     buttonElement.textContent = button.text;
                     buttonElement.dataset.action = button.action;
                     buttonElement.dataset.type = button.type;
+                    if (button.type === 'external') {
+                        // Add external icon and open link in new tab
+                        const icon = document.createElement('span');
+                        icon.innerHTML = '<svg style="width:14px;height:14px;margin-left:6px;vertical-align:middle;opacity:.7;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 3h7m0 0v7m0-7L10 14m-4 0v7a2 2 0 002 2h7a2 2 0 002-2v-7"/></svg>';
+                        buttonElement.appendChild(icon);
+                        buttonElement.onclick = (e) => { window.open(button.action, '_blank'); };
+                    } else {
+                        buttonElement.onclick = (e) => { sendMessage(button.action); };
+                    }
+                    buttonElement.tabIndex = 0;
                     container.appendChild(buttonElement);
                 });
             }
@@ -1794,6 +1802,17 @@
     }
     
     // Função para adicionar event listeners aos objetos de ação rápida
+    // Disable all interactive smart objects in previous messages
+    function disableSmartObjectsInMessages() {
+        document.querySelectorAll('.chat-message.bot, .chat-message.user').forEach(msg => {
+            msg.querySelectorAll('button, select, input').forEach(el => {
+                el.disabled = true;
+                el.classList.add('disabled');
+                el.tabIndex = -1;
+            });
+        });
+    }
+
     function addQuickActionEventListeners(element) {
         // Event listener para botões
         element.querySelectorAll('.quick-action-button').forEach(button => {
@@ -1817,6 +1836,7 @@
                 e.preventDefault();
                 const action = this.dataset.action;
                 if (action) {
+                    disableSmartObjectsInMessages();
                     sendMessage(action);
                 }
             });
