@@ -1932,6 +1932,13 @@
                     countrySelect.appendChild(opt);
                 });
                 wrapper.appendChild(countrySelect);
+                // Defer input creation until after select
+                setTimeout(() => {
+                    if (inEl && inEl.value && inEl.value.startsWith('+')) {
+                        const found = phoneCountryList.find(c=> inEl.value.slice(1).startsWith(c.dialCode));
+                        if (found) countrySelect.value = found.dialCode;
+                    }
+                }, 0);
                 // Sync input/select
                 countrySelect.addEventListener('change', () => {
                     const raw = inEl.value.replace(/^\+?\d*/, '');
@@ -1953,7 +1960,7 @@
             tick.textContent = '✓';
             tick.style.display = 'none';
             tick.style.position = 'absolute';
-            tick.style.right = '10px';
+            tick.style.right = obj.validation === 'phone' ? '80px' : '44px'; // Move left if phone select present
             tick.style.top = '50%';
             tick.style.transform = 'translateY(-50%)';
             tick.style.color = 'green';
