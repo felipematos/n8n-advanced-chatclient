@@ -1,4 +1,4 @@
-// Chat Widget Script Version 0.5.0
+// Chat Widget Script Version 0.6.1
 (function() {
     // Limpar qualquer instância anterior do widget
     function cleanupExistingWidget() {
@@ -533,12 +533,6 @@
             padding-right: 12px;
         }
 
-        .n8n-chat-widget .quick-action-button.external::after {
-            content: "↗";
-            font-size: 12px;
-            opacity: 0.7;
-        }
-
         .n8n-chat-widget .quick-action-select {
             background: linear-gradient(135deg, var(--chat--color-primary-light, #f0f2ff) 0%, var(--chat--color-secondary-light, #f5f0ff) 100%);
             color: var(--chat--color-primary, #080A56);
@@ -675,6 +669,164 @@
         .n8n-chat-widget.font-size-xl .chat-message,
         .n8n-chat-widget.font-size-xl .chat-input textarea {
             font-size: 20px;
+        }
+
+        .n8n-chat-widget .quick-action-button.disabled,
+        .n8n-chat-widget .quick-action-link.disabled,
+        .n8n-chat-widget .quick-action-select.disabled,
+        .n8n-chat-widget .phone-code-select {
+            opacity: 0.5;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+        .n8n-chat-widget .quick-action-input-send.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+
+        /* Add invalid/valid styles */
+        .n8n-chat-widget .quick-action-container input.invalid {
+            border-color: red;
+            color: red;
+            animation: blink-invalid 0.5s ease 0s 2;
+        }
+        .n8n-chat-widget .valid-check {
+            color: green;
+            margin-left: 4px;
+        }
+        @keyframes blink-invalid {
+            0%,100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+        
+        .n8n-chat-widget .quick-action-link.disabled,
+        .n8n-chat-widget .quick-action-select.disabled,
+        .n8n-chat-widget .phone-code-select.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+        .n8n-chat-widget .phone-code-select {
+            width: 60px;
+            margin-right: 4px;
+        }
+        
+        .n8n-chat-widget .quick-action-input-send {
+            height: 100%;
+            padding: 0 8px;
+            background: none;
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            visibility: visible; /* Ensure visibility */
+            height: 40px; /* Set explicit height */
+        }
+
+        .n8n-chat-widget .phone-code-select {
+            pointer-events: auto; /* Ensure pointer-events is auto */
+        }
+        
+        /* Quick-action send button styling - ensure visible and aligned */
+        .n8n-chat-widget .quick-action-input-send {
+            background: linear-gradient(135deg, var(--chat--color-primary) 0%, var(--chat--color-secondary) 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 0 12px;
+            height: 40px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.2s;
+        }
+        .n8n-chat-widget .quick-action-input-send:hover {
+            transform: scale(1.05);
+        }
+        
+        /* External-icon styling */
+        .n8n-chat-widget .quick-action-button.external svg {
+            width: 14px;
+            height: 14px;
+            margin-left: 6px;
+            vertical-align: middle;
+            opacity: 0.7;
+        }
+        
+        /* Consistent input/secret styling */
+        .n8n-chat-widget .quick-action-container input,
+        .n8n-chat-widget .quick-action-container select {
+            padding: 12px;
+            border: 1px solid rgba(8, 10, 86, 0.2);
+            border-radius: 8px;
+            background: var(--chat--color-background);
+            color: var(--chat--color-font);
+            font-size: 14px;
+            height: 40px;
+            flex: 1 1 0%;
+            box-sizing: border-box;
+        }
+        .n8n-chat-widget .quick-action-container {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            width: 100%;
+            position: relative;
+        }
+        .n8n-chat-widget .quick-action-container .valid-check {
+            position: absolute;
+            right: 44px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: green;
+            font-size: 18px;
+            z-index: 2;
+            pointer-events: none;
+            background: transparent;
+            display: none;
+        }
+        .n8n-chat-widget .quick-action-input-send {
+            background: linear-gradient(135deg, var(--chat--color-primary) 0%, var(--chat--color-secondary) 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 0 12px;
+            height: 40px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.2s;
+            margin-left: 4px;
+        }
+        .n8n-chat-widget .quick-action-input-send svg {
+            fill: none;
+            stroke: white;
+            stroke-width: 2;
+        }
+        .n8n-chat-widget .phone-code-select {
+            opacity: 1;
+            border: 1px solid rgba(8,10,86,0.2);
+            background: var(--chat--color-background);
+            color: var(--chat--color-font);
+            font-size: 14px;
+            height: 40px;
+            border-radius: 8px;
+            margin-right: 4px;
+            padding: 0 8px;
+            cursor: pointer;
+            pointer-events: auto;
+        }
+        
+        /* Phone-select width and clickable */
+        .n8n-chat-widget .phone-code-select {
+            width: 60px;
+            margin-right: 4px;
+            padding: 0 8px;
+            cursor: pointer;
+            pointer-events: auto;
         }
     `;
 
@@ -1047,7 +1199,7 @@
         return false;
     }
 
-    // Função melhorada para detectar se o conteúdo parece ser uma URL de imagem GIF ou um link de serviço de GIF
+    // Função para detectar se o conteúdo parece ser uma URL de imagem GIF ou um link de serviço de GIF
     function isGifURL(text) {
         if (!text) return false;
         
@@ -1258,7 +1410,7 @@
     function processImageMarkdown(text) {
         // Processar imagens - ![alt](url)
         return text.replace(
-            /!\[([^\]]*)\]\(([^)]+)\)/g, 
+            /!\[([^\]]*)\]\((https?:\/\/[^)]+)\)/g, 
             (match, alt, url) => {
                 // Extrair extensão do arquivo para melhorar a tag alt
                 const extension = url.toLowerCase().match(/\.(gif|jpe?g|png)(\?|$)/);
@@ -1292,7 +1444,7 @@
         });
         
         // Preservar botões - [{button:texto|mensagem}] ou [{botao:texto|mensagem}]
-        html = html.replace(/\[\{(button|botao):([^|]+)\|([^}]+)\}\]/g, (match) => {
+        html = html.replace(/\[\{(button|botao):([^|]+)\|([^|}\n]+)\}\]/g, (match) => {
             const marker = `__QUICK_ACTION_BUTTON_${markerIndex++}__`;
             quickActionMarkers.push({ marker, content: match });
             return marker;
@@ -1326,8 +1478,8 @@
         
         // Processar cabeçalhos
         html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
-        html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
-        html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
+        html = html.replace(/^## (.+)$/gm, '<h2>$2</h2>');
+        html = html.replace(/^### (.+)$/gm, '<h3>$3</h3>');
         
         // Processar links - [texto](url)
         html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
@@ -1557,7 +1709,7 @@
         }
     }
     
-    async function sendMessage(message) {
+    async function sendMessage(message, { maskedMessage = null, skipLocal = false } = {}) {
         if (!message || message.trim() === '') return;
 
         // Get metadata asynchronously first
@@ -1571,11 +1723,13 @@
             metadata: metadata // Use the gathered metadata object
         };
 
-        // Exibir mensagem do usuário 
-        const userMessageDiv = document.createElement('div');
-        userMessageDiv.className = 'chat-message user';
-        userMessageDiv.textContent = message;
-        messagesContainer.appendChild(userMessageDiv);
+        // Exibir mensagem do usuário
+        if (!skipLocal) {
+            const userMessageDiv = document.createElement('div');
+            userMessageDiv.className = 'chat-message user';
+            userMessageDiv.textContent = maskedMessage || message;
+            messagesContainer.appendChild(userMessageDiv);
+        }
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
 
         // Mostrar indicador de digitação
@@ -1673,11 +1827,31 @@
     function processQuickActions(text) {
         if (!text) return { text: '', hasQuickActions: false };
         
-        let processedText = text;
+        let processedText = text.trim();
         let buttons = [];
         let selectOptions = [];
         let links = [];
+        let inputObject = null;
         
+        // Process input/secret quick action
+        processedText = processedText.replace(/(?:\[\{|\{\[)(input|secret)([\s\S]*?)(?:\}\]|\]\})/i,
+            (match, type, body) => {
+                // split by '|' and remove empty
+                const parts = body.split('|').map(s=>s.trim()).filter(s=>s);
+                let placeholder = '', prefix = '', required = false, validation = 'none';
+                // categorize parts
+                parts.forEach(p => {
+                    const low = p.toLowerCase();
+                    if (low === 'required') required = true;
+                    else if (['email','url','phone'].includes(low)) validation = low;
+                    else if (!placeholder) placeholder = p;
+                    else if (!prefix) prefix = p;
+                });
+                inputObject = { type, placeholder, prefix, required, validation };
+                return '';
+            }
+        );
+
         // Processar links de ação rápida - [texto](action:mensagem) ou [texto](acao:mensagem)
         processedText = processedText.replace(/\[([^\]]+)\]\((action|acao):([^)]+)\)/g, (match, text, actionType, action) => {
             // Verificar se a ação é uma URL
@@ -1689,12 +1863,19 @@
             return ''; // Remover o link do texto
         });
         
-        // Processar botões no formato: [{button|Button text|Text to be sent or url}]
-        processedText = processedText.replace(/\[\{(button|botao)\|([^|}]+)\|([^|}]+)\}\]/gi, (match, buttonType, text, action) => {
-            let isUrl = isValidUrl(action);
-            buttons.push({ text, action, type: isUrl ? 'external' : 'normal' });
-            return '';
-        });
+        // Remove ALL malformed [{...}] directives first
+        processedText = processedText.replace(/\[\{[^\]]*?\}\]/g, '').replace(/\{\[[^\]]*?\]\}/g, '');
+        // Extract ALL [{button|Text|Action}] objects (Action can be plain text or URL)
+        const buttonRegex = /\[\{(?:button|botao)\|([^|}]+)\|([^|}\n]+)\}\]/gi;
+        let buttonMatch;
+        while ((buttonMatch = buttonRegex.exec(processedText)) !== null) {
+            const [, btnText, btnAction] = buttonMatch;
+            const actionVal = (btnAction || btnText).trim();
+            const isUrl = isValidUrl(actionVal);
+            buttons.push({ text: btnText.trim(), action: actionVal, type: isUrl ? 'external' : 'normal' });
+        }
+        // Remove ALL button objects and any trailing markdown/parenthesis from the text before markdown rendering
+        processedText = processedText.replace(buttonRegex, '').replace(/\([^)]+\)/g, '').replace(/\s{2,}/g, ' ').trim();
         // Suporte a até 4 botões por mensagem (não limitar aqui, limitar na renderização)
         // Suporte a outros tipos de objetos pode ser adicionado aqui, se necessário
         
@@ -1712,14 +1893,15 @@
         processedText = processedText.trim();
         
         // Verificar se há objetos de ação rápida
-        const hasQuickActions = buttons.length > 0 || selectOptions.length > 0 || links.length > 0;
+        const hasQuickActions = inputObject !== null || buttons.length > 0 || selectOptions.length > 0 || links.length > 0;
         
         return {
             text: processedText,
             hasQuickActions,
-            buttons,
-            selectOptions,
-            links
+            buttons: inputObject ? [] : buttons,
+            selectOptions: inputObject ? [] : selectOptions,
+            links: inputObject ? [] : links,
+            input: inputObject
         };
     }
     
@@ -1727,6 +1909,126 @@
     function renderQuickActions(quickActions, messageElement) {
         if (!quickActions.hasQuickActions) return;
         
+        // Handle single input/secret object
+        if (quickActions.input) {
+            const obj = quickActions.input;
+            const container = document.createElement('div');
+            container.className = 'quick-action-container';
+            const wrapper = document.createElement('div');
+            wrapper.style.display = 'flex';
+            wrapper.style.gap = '4px';
+            wrapper.style.marginTop = '10px';
+            wrapper.style.alignItems = 'center';
+            let countrySelect = null;
+            if (obj.validation === 'phone') {
+                countrySelect = document.createElement('select');
+                countrySelect.className = 'phone-code-select';
+                // Full country list
+                phoneCountryList.forEach(({iso, dialCode}) => {
+                    const flag = iso.split('').map(c=>String.fromCodePoint(0x1f1e6 + c.charCodeAt(0)-65)).join('');
+                    const opt = document.createElement('option');
+                    opt.value = dialCode;
+                    opt.textContent = `${flag} +${dialCode}`;
+                    countrySelect.appendChild(opt);
+                });
+                wrapper.appendChild(countrySelect);
+                // Sync input/select
+                countrySelect.addEventListener('change', () => {
+                    const raw = inEl.value.replace(/^\+?\d*/, '');
+                    inEl.value = '+' + countrySelect.value + (raw ? ' ' + raw.replace(/^\d+\s*/, '') : '');
+                });
+            
+            }
+            const inEl = document.createElement('input');
+            inEl.type = obj.type === 'secret' ? 'password' : 'text';
+            inEl.placeholder = obj.placeholder;
+            if (obj.required) inEl.required = true;
+            inEl.style.flex = '1';
+            inEl.style.height = '40px';
+            inEl.style.paddingRight = '32px'; // room for tick
+            wrapper.appendChild(inEl);
+            // Tick container
+            const tick = document.createElement('span');
+            tick.className = 'valid-check';
+            tick.textContent = '✓';
+            tick.style.display = 'none';
+            tick.style.position = 'absolute';
+            tick.style.right = '10px';
+            tick.style.top = '50%';
+            tick.style.transform = 'translateY(-50%)';
+            tick.style.color = 'green';
+            tick.style.pointerEvents = 'none';
+            tick.style.fontSize = '18px';
+            tick.style.zIndex = '2';
+            wrapper.style.position = 'relative';
+            wrapper.appendChild(tick);
+            const btn = document.createElement('button');
+            btn.className = 'quick-action-input-send';
+            btn.style.height = '40px';
+            btn.style.display = 'flex';
+            btn.style.alignItems = 'center';
+            btn.style.justifyContent = 'center';
+            btn.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M22 2L11 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+            wrapper.appendChild(btn);
+            container.appendChild(wrapper);
+            messageElement.appendChild(container);
+            textarea.disabled = true;
+            sendButton.disabled = true;
+            setTimeout(() => inEl.focus(), 50); // Focus after a short delay
+            // Live validation
+            inEl.addEventListener('input', () => {
+                let v = inEl.value;
+                let ok = true;
+                if (obj.required && !v) ok = false;
+                if (obj.validation === 'email' && v && !/^\S+@\S+\.\S+$/.test(v)) ok = false;
+                if (obj.validation === 'url' && v && !/^https?:\/\/.+/.test(v)) ok = false;
+                if (obj.validation === 'phone' && v) {
+                    v = v.replace(/^\+/, '');
+                    ok = phoneCountryList.some(c=> v.startsWith(c.dialCode)) && /^\d+$/.test(v);
+                }
+                tick.style.display = ok ? 'block' : 'none';
+                inEl.classList.toggle('invalid', !ok);
+                // Phone: update select
+                if (obj.validation === 'phone') {
+                    const v2 = inEl.value.replace(/^\+/, '');
+                    const found = phoneCountryList.find(c=> v2.startsWith(c.dialCode));
+                    if (found) countrySelect.value = found.dialCode;
+                }
+            });
+            btn.addEventListener('click', () => {
+                let v = inEl.value.trim();
+                if (obj.required && !v) {
+                    inEl.classList.add('invalid');
+                    setTimeout(() => inEl.classList.remove('invalid'), 1000);
+                    return;
+                }
+                if (obj.validation === 'email' && !/^\S+@\S+\.\S+$/.test(v)) {
+                    inEl.classList.add('invalid');
+                    setTimeout(() => inEl.classList.remove('invalid'), 1000);
+                    return;
+                }
+                if (obj.validation === 'url' && !/^https?:\/\/.+/.test(v)) {
+                    inEl.classList.add('invalid');
+                    setTimeout(() => inEl.classList.remove('invalid'), 1000);
+                    return;
+                }
+                if (obj.validation === 'phone') v = countrySelect.value + v;
+                const raw = obj.prefix + v;
+                const display = obj.type === 'secret' ? obj.prefix + '*'.repeat(v.length) : raw;
+                disableSmartObjectsInMessages();
+                textarea.disabled = false;
+                sendButton.disabled = false;
+                sendMessage(raw, { maskedMessage: display });
+            });
+            inEl.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    btn.click();
+                }
+            });
+            return;
+        }
+
         // Processar links embutidos e adicionar ao texto da mensagem
         if (quickActions.links.length > 0) {
             const originalContent = messageElement.innerHTML;
@@ -1754,16 +2056,13 @@
                     buttonElement.textContent = button.text;
                     buttonElement.dataset.action = button.action;
                     buttonElement.dataset.type = button.type;
-                    if (button.type === 'external') {
-                        // Add external icon and open link in new tab
-                        const icon = document.createElement('span');
-                        icon.innerHTML = '<svg style="width:14px;height:14px;margin-left:6px;vertical-align:middle;opacity:.7;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 3h7m0 0v7m0-7L10 14m-4 0v7a2 2 0 002 2h7a2 2 0 002-2v-7"/></svg>';
-                        buttonElement.appendChild(icon);
-                        buttonElement.onclick = (e) => { window.open(button.action, '_blank'); };
-                    } else {
-                        buttonElement.onclick = (e) => { sendMessage(button.action); };
-                    }
                     buttonElement.tabIndex = 0;
+                    if (button.type === 'external') {
+                        // append icon
+                        const icon = document.createElement('span');
+                        icon.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 3h7m0 0v7m0-7L10 14m-4 0v7a2 2 0 002 2h7a2 2 0 002-2v-7"/></svg>';
+                        buttonElement.appendChild(icon);
+                    }
                     container.appendChild(buttonElement);
                 });
             }
@@ -1805,7 +2104,7 @@
     // Disable all interactive smart objects in previous messages
     function disableSmartObjectsInMessages() {
         document.querySelectorAll('.chat-message.bot, .chat-message.user').forEach(msg => {
-            msg.querySelectorAll('button, select, input').forEach(el => {
+            msg.querySelectorAll('button, select, input, a.quick-action-link').forEach(el => {
                 el.disabled = true;
                 el.classList.add('disabled');
                 el.tabIndex = -1;
@@ -1824,6 +2123,7 @@
                     if (type === 'external') {
                         window.open(action, '_blank');
                     } else {
+                        disableSmartObjectsInMessages();
                         sendMessage(action);
                     }
                 }
