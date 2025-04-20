@@ -1,30 +1,24 @@
 (function() {
     // v0.6.5: define phoneCountryList to avoid ReferenceErrors
     const countriesFilePath = 'phone-countries.json'; // Path relative to chat-widget.js
-    let phoneCountryList = []; // Initialize as empty array
 
-    // Load country list from JSON
-    async function loadPhoneCountryList() {
-        try {
-            const response = await fetch(countriesFilePath);
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            phoneCountryList = await response.json();
-            debug('Successfully loaded phone country list from', countriesFilePath);
-        } catch (error) {
-            console.error('Error loading phone country list:', error);
-            // Use a minimal fallback list or handle the error appropriately
-            phoneCountryList = [
-                { iso: 'US', dialCode: '1' },
-                { iso: 'GB', dialCode: '44' },
-                { iso: 'BR', dialCode: '55' },
-            ];
-            debug('Failed to load phone country list, using fallback.', phoneCountryList, true);
-        }
-    }
+    // --- Essential Variable Declarations ---
+    let config = {};
+    let widgetContainer, launcherButton, chatContainer, closeButton, chatInterface, messagesContainer, textarea, sendButton, typingIndicator, fontSizeToggle, chatHeader, chatMessages, proactivePromptElement, newChatBtn, phoneInputField, phoneCountrySelect, quickActionButtonContainer, mainInputArea;
+    let currentSessionId = null;
+    let messages = [];
+    let isChatOpen = false;
+    let isSending = false;
+    let isFirstTime = !localStorage.getItem('n8nChatVisited');
+    const fontSizes = ['small', 'medium', 'large'];
+    let currentFontSizeIndex = 1; // Default to medium
+    let proactivePromptTimeout;
+    let phoneCountryList = []; // Initialize country list
+    let userLocation = null; // Store detected user location
+    let currentQuickAction = null; // Track active quick action
+    let debugMode = false; // Central debug flag
 
-    // Limpar qualquer instância anterior do widget
+    // Function to clear previous widget instances and styles
     function cleanupExistingWidget() {
         // Remover elementos existentes do widget
         const existingWidget = document.querySelector('.n8n-chat-widget');
@@ -298,7 +292,7 @@
             transform: scale(1.05);
         }
 
-        body .n8n-chat-widget .chat-toggle {
+        .n8n-chat-widget .chat-toggle {
             position: fixed;
             bottom: 20px;
             right: 20px;
@@ -855,6 +849,22 @@
             cursor: pointer;
             pointer-events: auto;
         }
+        
+        .n8n-chat-widget .chat-input-area.disabled {
+            /* Optional: Style the container itself when disabled */
+            /* background-color: #e9e9e9; */
+        }
+        .n8n-chat-widget .chat-input-area textarea.disabled {
+            background-color: #f0f0f0; /* Lighter background for disabled textarea */
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+        .n8n-chat-widget .chat-input-area button.disabled {
+            background-color: #ccc; /* Grey background for disabled button */
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
     `;
 
     // Load Geist font
@@ -868,6 +878,307 @@
     styleSheet.id = 'n8n-chat-widget-styles';
     styleSheet.textContent = styles;
     document.head.appendChild(styleSheet);
+
+    // --- Proactive Prompt Logic --- 
+
+    // TODO: Define or ensure getProactiveMessage() is available
+    function getProactiveMessage() {
+        // Basic implementation, enhance later if needed
+        // Assumes config is available in this scope
+        return config?.proactivePrompt?.message || "Need help? Chat with us!";
+    }
+
+    function createProactivePrompt() {
+        // Assumes config, proactivePromptElement, widgetContainer, toggleChat, hideProactivePrompt, debug are available
+        if (!config?.proactivePrompt?.enabled || proactivePromptElement || !widgetContainer) return;
+        debug("Creating proactive prompt");
+
+        const promptMessage = getProactiveMessage();
+        proactivePromptElement = document.createElement('div');
+        proactivePromptElement.classList.add('proactive-prompt');
+        if (config.style?.position === 'left') {
+            proactivePromptElement.classList.add('position-left');
+        }
+
+        proactivePromptElement.innerHTML = `
+            <div class="prompt-content">${promptMessage}</div>
+            <button class="close-prompt" title="Close" style="color: ${config.style?.secondaryColor || '#0b0f7b'}">×</button>
+        `;
+
+        proactivePromptElement.querySelector('.prompt-content').addEventListener('click', () => {
+            debug("Proactive prompt clicked");
+            toggleChat(true); // Open the chat
+            hideProactivePrompt(); // Hide prompt after clicking
+        });
+
+        proactivePromptElement.querySelector('.close-prompt').addEventListener('click', (e) => {
+            e.stopPropagation(); // Prevent chat from opening
+            debug("Proactive prompt close button clicked");
+            hideProactivePrompt();
+        });
+
+        widgetContainer.appendChild(proactivePromptElement);
+        setTimeout(() => proactivePromptElement.classList.add('show'), 50); 
+    }
+
+    function hideProactivePrompt() {
+        // Assumes proactivePromptElement, proactivePromptTimeout, debug are available
+        if (proactivePromptElement) {
+            debug("Hiding proactive prompt");
+            proactivePromptElement.classList.remove('show');
+            setTimeout(() => {
+                proactivePromptElement?.remove(); // Add null check
+                proactivePromptElement = null;
+            }, 300); // Match animation duration
+        }
+        if (proactivePromptTimeout) {
+            clearTimeout(proactivePromptTimeout);
+            proactivePromptTimeout = null;
+        }
+    }
+
+    function scheduleProactivePrompt() {
+        // Assumes config, proactivePromptTimeout, isChatOpen, createProactivePrompt, debug are available
+        if (proactivePromptTimeout) {
+            clearTimeout(proactivePromptTimeout);
+        }
+        // Use optional chaining for safer access
+        const delay = config?.proactivePrompt?.delay ?? 5000;
+        debug(`Scheduling proactive prompt with delay: ${delay}ms`);
+        proactivePromptTimeout = setTimeout(() => {
+            if (!isChatOpen) {
+                createProactivePrompt();
+            }
+        }, delay);
+    }
+
+    // --- Proactive Prompt Logic --- 
+
+    // TODO: Define or ensure getProactiveMessage() is available
+    function getProactiveMessage() {
+        // Basic implementation, enhance later if needed
+        // Assumes config is available in this scope
+        return config?.proactivePrompt?.message || "Need help? Chat with us!";
+    }
+
+    function createProactivePrompt() {
+        // Assumes config, proactivePromptElement, widgetContainer, toggleChat, hideProactivePrompt, debug are available
+        if (!config?.proactivePrompt?.enabled || proactivePromptElement || !widgetContainer) return;
+        debug("Creating proactive prompt");
+
+        const promptMessage = getProactiveMessage();
+        proactivePromptElement = document.createElement('div');
+        proactivePromptElement.classList.add('proactive-prompt');
+        if (config.style?.position === 'left') {
+            proactivePromptElement.classList.add('position-left');
+        }
+
+        proactivePromptElement.innerHTML = `
+            <div class="prompt-content">${promptMessage}</div>
+            <button class="close-prompt" title="Close" style="color: ${config.style?.secondaryColor || '#0b0f7b'}">×</button>
+        `;
+
+        proactivePromptElement.querySelector('.prompt-content').addEventListener('click', () => {
+            debug("Proactive prompt clicked");
+            toggleChat(true); // Open the chat
+            hideProactivePrompt(); // Hide prompt after clicking
+        });
+
+        proactivePromptElement.querySelector('.close-prompt').addEventListener('click', (e) => {
+            e.stopPropagation(); // Prevent chat from opening
+            debug("Proactive prompt close button clicked");
+            hideProactivePrompt();
+        });
+
+        widgetContainer.appendChild(proactivePromptElement);
+        setTimeout(() => proactivePromptElement.classList.add('show'), 50); 
+    }
+
+    function hideProactivePrompt() {
+        // Assumes proactivePromptElement, proactivePromptTimeout, debug are available
+        if (proactivePromptElement) {
+            debug("Hiding proactive prompt");
+            proactivePromptElement.classList.remove('show');
+            setTimeout(() => {
+                proactivePromptElement?.remove(); // Add null check
+                proactivePromptElement = null;
+            }, 300); // Match animation duration
+        }
+        if (proactivePromptTimeout) {
+            clearTimeout(proactivePromptTimeout);
+            proactivePromptTimeout = null;
+        }
+    }
+
+    function scheduleProactivePrompt() {
+        // Assumes config, proactivePromptTimeout, isChatOpen, createProactivePrompt, debug are available
+        if (proactivePromptTimeout) {
+            clearTimeout(proactivePromptTimeout);
+        }
+        // Use optional chaining for safer access
+        const delay = config?.proactivePrompt?.delay ?? 5000;
+        debug(`Scheduling proactive prompt with delay: ${delay}ms`);
+        proactivePromptTimeout = setTimeout(() => {
+            if (!isChatOpen) {
+                createProactivePrompt();
+            }
+        }, delay);
+    }
+
+    // --- RESTORED: Toggle Chat Function --- 
+    async function toggleChat(forceOpen = null) {
+        isChatOpen = (forceOpen !== null) ? forceOpen : !isChatOpen;
+        debug(`Toggling chat. New state: ${isChatOpen ? 'Open' : 'Closed'}`);
+
+        if (isChatOpen) {
+            chatContainer.style.display = 'flex'; // Use flex for centering/layout
+            launcherButton.style.display = 'none';
+            // Delay showing the chat content slightly for smoother animation
+            setTimeout(() => {
+                chatContainer.classList.add('visible');
+            }, 10); // Small delay
+
+            hideProactivePrompt(); // Hide prompt when opening chat
+
+            // Determine if we need to show welcome screen or start a conversation
+            if (config.skipWelcomeScreen && isFirstTime) {
+                // Skip welcome, start new conversation directly
+                chatContainer.querySelector('.new-conversation').style.display = 'none';
+                chatInterface.classList.add('active');
+                
+                // *Don't* add the "connecting" message here directly.
+                // Let startNewConversation handle the indicator and final message.
+
+                startNewConversation()
+                    .then(() => {
+                        setTimeout(() => textarea.focus(), 100);
+                    })
+                    .catch((error) => {
+                        console.error("[DEBUG] startNewConversation().catch block triggered. Error object:", error); // Added log
+                        console.error("[DEBUG] Error message:", error?.message); // Added log
+                        console.error("[DEBUG] Error stack:", error?.stack); // Added log
+                        debug('Erro ao iniciar conversa (skip welcome):', error, true);
+                        // Error handling inside startNewConversation already displays the fallback greeting.
+                        if (typeof config.onError === 'function') config.onError(error);
+                        setTimeout(() => textarea.focus(), 100);
+                    });
+            } else if (!isFirstTime) {
+                // Re-opening an existing chat, just focus
+                // Ensure chat interface is active if it wasn't already
+                if (!chatInterface.classList.contains('active')) {
+                    chatContainer.querySelector('.new-conversation').style.display = 'none';
+                    chatInterface.classList.add('active');
+                 }
+                setTimeout(() => textarea.focus(), 100);
+            } else {
+                // Opening for the first time WITHOUT skipWelcomeScreen
+                // Show the welcome screen explicitly if it was hidden
+                chatContainer.querySelector('.new-conversation').style.display = 'block'; // Changed from flex to block if needed
+                chatInterface.classList.remove('active');
+                 // Ensure messages are cleared for a clean welcome screen
+                 // Note: If preserving history is desired, this clear needs adjustment
+                 if (messages.length === 0) {
+                     chatMessages.innerHTML = ''; // Clear only if truly empty
+                 }
+            }
+        } else {
+            chatContainer.classList.remove('visible');
+            // Wait for animation to finish before hiding and showing launcher
+            setTimeout(() => {
+                chatContainer.style.display = 'none';
+                launcherButton.style.display = 'flex'; // Use flex for centering icon
+                launcherButton.classList.add('visible'); // Ensure launcher is visible
+                scheduleProactivePrompt(); // Schedule prompt when closing chat
+            }, 300); // Match CSS transition duration
+        }
+        // Mark as visited after first interaction (open/close)
+        if (isFirstTime) {
+            localStorage.setItem('n8nChatVisited', 'true');
+            isFirstTime = false; 
+        }
+    }
+
+    // Load country list from JSON
+    async function loadPhoneCountryList() {
+        try {
+            const response = await fetch(countriesFilePath);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            phoneCountryList = await response.json();
+            debug('Successfully loaded phone country list from', countriesFilePath);
+        } catch (error) {
+            console.error('Error loading phone country list:', error);
+            // Use a minimal fallback list or handle the error appropriately
+            phoneCountryList = [
+                { iso: 'US', dialCode: '1' },
+                { iso: 'GB', dialCode: '44' },
+                { iso: 'BR', dialCode: '55' },
+            ];
+            debug('Failed to load phone country list, using fallback.', phoneCountryList, true);
+        }
+    }
+
+    // Initial load of countries, placed correctly within IIFE scope
+    loadPhoneCountryList().then(() => {
+        debug("Country list loaded, ready for init.");
+        // The list is now loaded and ready for when initN8nChatWidget is called.
+    }).catch(error => {
+        console.error("[CRITICAL] Failed to load phone country list:", error);
+        // Widget might still function but phone input pre-selection will fail.
+    });
+
+    // --- RESTORED: Minimal Initialization Function --- 
+    function initN8nChatWidget(userConfig) {
+        // TODO: Restore config merge, translations, theme application
+        // config = deepMerge(defaultConfig, userConfig);
+        // loadTranslations(config.language);
+        // applyTheme(config.style);
+
+        // TODO: Call createWidgetStructure() here - Assuming it's defined/restored
+        // createWidgetStructure(); 
+
+        // Find CORE elements needed for basic operation
+        widgetContainer = document.getElementById('n8n-chat-widget-container'); // Assume ID
+        if (!widgetContainer) {
+             console.error("CRITICAL: Widget container (#n8n-chat-widget-container) not found.");
+             return;
+        }
+        chatContainer = widgetContainer.querySelector('.chat-container');
+        chatInterface = widgetContainer.querySelector('.chat-interface');
+        messagesContainer = widgetContainer.querySelector('.messages-container');
+        textarea = widgetContainer.querySelector('textarea');
+        newChatBtn = widgetContainer.querySelector('.new-chat-btn'); 
+
+        // Find launcher button (assuming it's created elsewhere or by createWidgetStructure)
+        launcherButton = document.getElementById('n8n-chat-launcher');
+        if (!launcherButton) {
+             // Maybe try creating it as fallback? Or assume createWidgetStructure handles it.
+             console.warn("Launcher button (#n8n-chat-launcher) not found initially.");
+        }
+        // Find close button
+        closeButton = widgetContainer.querySelector('.header-button.close-button'); // Assuming class
+        if (!closeButton) {
+             console.warn("Close button (.header-button.close-button) not found initially.");
+        }
+
+        // --- Attach MINIMAL Event Listeners --- 
+        if (launcherButton) {
+            launcherButton.addEventListener('click', () => toggleChat());
+        } else {
+             debug("Launcher button not found, cannot attach listener.");
+        }
+        if (closeButton) {
+            closeButton.addEventListener('click', () => toggleChat(false));
+        } else {
+             debug("Close button not found, cannot attach listener.");
+        }
+
+        // TODO: Restore other listeners (newChatBtn, send, textarea, etc.)
+        // TODO: Restore initial setup (startOpen, proactive prompt, font size etc.)
+
+        debug("Minimal initN8nChatWidget completed.");
+    }
 
     // Define default messages *before* defaultConfig uses them
     const defaultProactiveMessages = {
@@ -923,7 +1234,7 @@
     };
 
     // Merge user config with defaults
-    const config = window.ChatWidgetConfig ?
+    config = window.ChatWidgetConfig ?
         {
             webhook: { ...defaultConfig.webhook, ...window.ChatWidgetConfig.webhook },
             branding: { ...defaultConfig.branding, ...window.ChatWidgetConfig.branding },
@@ -1021,10 +1332,8 @@
     if (window.N8NChatWidgetInitialized) return;
     window.N8NChatWidgetInitialized = true;
 
-    let currentSessionId = '';
-
     // Create widget container
-    const widgetContainer = document.createElement('div');
+    widgetContainer = document.createElement('div');
     widgetContainer.className = 'n8n-chat-widget';
     
     // Set CSS variables for colors
@@ -1033,7 +1342,7 @@
     widgetContainer.style.setProperty('--n8n-chat-background-color', config.style.backgroundColor);
     widgetContainer.style.setProperty('--n8n-chat-font-color', config.style.fontColor);
 
-    const chatContainer = document.createElement('div');
+    chatContainer = document.createElement('div');
     chatContainer.className = `chat-container${config.style.position === 'left' ? ' position-left' : ''}`;
     
     // Function to get the correct language string from a potentially multi-language object
@@ -1049,6 +1358,7 @@
             return getText(fallbackKey, '');
         }
     }
+    
     
     // Criar conteúdo do chat container diretamente
     let chatContainerHTML = `
@@ -1108,19 +1418,17 @@
     toggleButton.className = `chat-toggle${config.style.position === 'left' ? ' position-left' : ''}`;
     toggleButton.innerHTML = `
         <!-- Standard chat baloon icon - Size controlled by CSS -->
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-            <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
-        </svg>`;
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>`;
     
     widgetContainer.appendChild(chatContainer);
     widgetContainer.appendChild(toggleButton);
     document.body.appendChild(widgetContainer);
 
-    const newChatBtn = chatContainer.querySelector('.new-chat-btn');
-    const chatInterface = chatContainer.querySelector('.chat-interface');
-    const messagesContainer = chatContainer.querySelector('.chat-messages');
-    const textarea = chatContainer.querySelector('textarea');
-    const sendButton = chatContainer.querySelector('.chat-input button');
+    newChatBtn = chatContainer.querySelector('.new-chat-btn');
+    chatInterface = chatContainer.querySelector('.chat-interface');
+    messagesContainer = chatContainer.querySelector('.chat-messages');
+    textarea = chatContainer.querySelector('textarea');
+    sendButton = chatContainer.querySelector('.chat-input button');
 
     function generateUUID() {
         // Verificar se o método nativo está disponível
@@ -1177,11 +1485,11 @@
             // Se não for JSON válido, retornar um objeto padrão
             debug('Resposta não é JSON válido:', text, true);
             return { output: "Olá! Como posso ajudar?" };
-        } catch (e) {
-            debug('Erro ao analisar JSON:', e, true);
+        } catch (error) {
+            debug('Erro ao processar JSON da resposta:', error, true);
             return { output: "Olá! Como posso ajudar?" };
         }
-    }
+
 
     // Função para mostrar o indicador de digitação
     function showTypingIndicator() {
@@ -1277,6 +1585,9 @@
         
         // Verificar se é uma URL de imagem conhecida
         if (/\.(gif|jpe?g|png|webp|svg)(\?[^"'\s<>]*)?$/i.test(cleanUrl)) {
+            const url = cleanUrl;
+            
+            // Usar template string sem quebras de linha para evitar problemas
             return {
                 url: cleanUrl,
                 isImage: true,
@@ -1391,7 +1702,7 @@ function processQuickActions(text) {
   
     // 4) extract select lists [{list|Title|opt:act|…}]
     cleaned = cleaned.replace(
-      /\[\{(?:list|lista)(?:\||:)\|?([^|}]+)\|([^}]+)\}\]/gi,
+      /\[\{(list|lista):([^|]+)\|([^}]+)\}\]/gi,
       (_m, title, opts) => {
         const options = opts.split('|').map(o => {
           const [t,a] = o.split(':');
@@ -2020,8 +2331,8 @@ function processQuickActions(text) {
 
                 // v0.6.7: Pre-select country based on detected location & prefill input
                 let prefilled = false;
-                if (metadata && metadata.countryCode) { 
-                    const detectedCountry = phoneCountryList.find(c => c.iso === metadata.countryCode); 
+                if (metadata && metadata.detectedLocation) { 
+                    const detectedCountry = phoneCountryList.find(c => c.iso === metadata.detectedLocation.country); 
                     if (detectedCountry) {
                         countrySelect.value = detectedCountry.dialCode;
                         inEl.value = '+' + detectedCountry.dialCode + ' '; // Prefill input
@@ -2088,8 +2399,6 @@ function processQuickActions(text) {
             btn.style.justifyContent = 'center';
             btn.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M22 2L11 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
             wrapper.appendChild(btn);
-            container.appendChild(wrapper);
-            messageElement.appendChild(container); 
             textarea.disabled = true;
             sendButton.disabled = true;
             setTimeout(() => inEl.focus(), 50); // Focus after a short delay
@@ -2280,7 +2589,7 @@ function processQuickActions(text) {
     }
 
     // Modificar o handler do botão new-chat-btn
-    newChatBtn.addEventListener('click', function(e) {
+    newChatBtn.addEventListener('click', async function(e) {
         e.preventDefault();
 
         // Apenas esconder a tela de nova conversa, mantendo o cabeçalho
@@ -2294,29 +2603,27 @@ function processQuickActions(text) {
         // Let startNewConversation handle the indicator and final message.
 
         // Iniciar a conversa (which will show indicator and then the greeting)
-        startNewConversation()
-            .then(function() {
-                // Focar na caixa de texto após a conversa ser inicializada
-                setTimeout(function() {
-                    textarea.focus();
-                }, 100);
-            })
-            .catch(function(error) {
-                console.error("[DEBUG] startNewConversation().catch block triggered. Error object:", error); // Added log
-                console.error("[DEBUG] Error message:", error?.message); // Added log
-                console.error("[DEBUG] Error stack:", error?.stack); // Added log
-                debug('Erro ao iniciar conversa no click:', error, true);
-                // Error handling inside startNewConversation already displays the fallback greeting.
-                // Reportar erro se existir callback de erro configurado
-                if (typeof config.onError === 'function') {
-                    config.onError(error);
-                }
-                // Ainda assim, focar na caixa de texto
-                setTimeout(function() {
-                    textarea.focus();
-                }, 100);
-            });
-    });
+        try {
+            await startNewConversation();
+            // Focar na caixa de texto após a conversa ser inicializada com sucesso
+            setTimeout(function() {
+                textarea.focus();
+            }, 100);
+        } catch (error) {
+            console.error("[DEBUG] startNewConversation().catch block triggered. Error object:", error); // Added log
+            console.error("[DEBUG] Error message:", error?.message); // Added log
+            console.error("[DEBUG] Error stack:", error?.stack); // Added log
+            debug('Erro ao iniciar conversa no click:', error, true);
+            // Error handling inside startNewConversation already displays the fallback greeting.
+            // Reportar erro se existir callback de erro configurado
+            if (typeof config.onError === 'function') {
+                config.onError(error);
+            }
+            // Ainda assim, focar na caixa de texto após o erro
+            setTimeout(function() {
+                textarea.focus();
+            }, 100);
+        }
     
     sendButton.addEventListener('click', () => {
         const message = textarea.value.trim();
@@ -2373,9 +2680,9 @@ function processQuickActions(text) {
                         setTimeout(() => textarea.focus(), 100);
                     });
             } else if (!isFirstTime) {
-                 // Re-opening an existing chat, just focus
-                 // Ensure chat interface is active if it wasn't already
-                 if (!chatInterface.classList.contains('active')) {
+                // Re-opening an existing chat, just focus
+                // Ensure chat interface is active if it wasn't already
+                if (!chatInterface.classList.contains('active')) {
                     chatContainer.querySelector('.new-conversation').style.display = 'none';
                     chatInterface.classList.add('active');
                  }
@@ -2416,8 +2723,7 @@ function processQuickActions(text) {
     });
 
     // Lógica do botão de tamanho de fonte
-    let currentFontSizeIndex = 0; // 0: sm, 1: md, 2: lg, 3: xl
-    const fontSizes = ['sm', 'md', 'lg', 'xl'];
+    currentFontSizeIndex = fontSizes.indexOf(widgetContainer.dataset.fontSize || 'medium');
     // Aplicar tamanho inicial (small)
     widgetContainer.classList.add('font-size-sm');
 
@@ -2444,9 +2750,6 @@ function processQuickActions(text) {
     };
 
     // Função para criar e mostrar o balão de prompt proativo
-    let proactivePromptTimeout;
-    let proactivePromptElement = null;
-
     function createProactivePrompt() {
         if (!config.proactivePrompt.enabled || proactivePromptElement) return;
 
@@ -2631,5 +2934,13 @@ function processQuickActions(text) {
         return finalMetadata;
     }
 
-    loadPhoneCountryList();
-})();
+    // Initial load of countries, placed correctly within IIFE scope
+    loadPhoneCountryList().then(() => {
+        debug("Country list loaded, ready for init.");
+        // The list is now loaded and ready for when initN8nChatWidget is called.
+    }).catch(error => {
+        console.error("[CRITICAL] Failed to load phone country list:", error);
+        // Widget might still function but phone input pre-selection will fail.
+    });
+
+    }());
