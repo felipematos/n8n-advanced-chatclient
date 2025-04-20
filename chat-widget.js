@@ -1,5 +1,29 @@
-// Chat Widget Script Version 0.6.1
 (function() {
+    // v0.6.5: define phoneCountryList to avoid ReferenceErrors
+    const countriesFilePath = 'phone-countries.json'; // Path relative to chat-widget.js
+    let phoneCountryList = []; // Initialize as empty array
+
+    // Load country list from JSON
+    async function loadPhoneCountryList() {
+        try {
+            const response = await fetch(countriesFilePath);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            phoneCountryList = await response.json();
+            debug('Successfully loaded phone country list from', countriesFilePath);
+        } catch (error) {
+            console.error('Error loading phone country list:', error);
+            // Use a minimal fallback list or handle the error appropriately
+            phoneCountryList = [
+                { iso: 'US', dialCode: '1' },
+                { iso: 'GB', dialCode: '44' },
+                { iso: 'BR', dialCode: '55' },
+            ];
+            debug('Failed to load phone country list, using fallback.', phoneCountryList, true);
+        }
+    }
+
     // Limpar qualquer instância anterior do widget
     function cleanupExistingWidget() {
         // Remover elementos existentes do widget
@@ -260,8 +284,11 @@
             color: white;
             border: none;
             border-radius: 8px;
-            padding: 0 20px;
+            padding: 0 12px;
             cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             transition: transform 0.2s;
             font-family: inherit;
             font-weight: 500;
@@ -535,7 +562,7 @@
 
         .n8n-chat-widget .quick-action-select {
             background: linear-gradient(135deg, var(--chat--color-primary-light, #f0f2ff) 0%, var(--chat--color-secondary-light, #f5f0ff) 100%);
-            color: var(--chat--color-primary, #080A56);
+            color: var(--chat--color-primary, #080A56); /* Texto escuro */
             border: 1px solid rgba(8, 10, 86, 0.1);
             border-radius: 8px;
             padding: 8px 12px;
@@ -640,7 +667,7 @@
             right: 8px;
             background: none;
             border: none;
-            color: white;
+            color: var(--chat--color-secondary); /* Cor ajustada */
             opacity: 0.7;
             cursor: pointer;
             font-size: 18px;
@@ -895,13 +922,6 @@
         languageTexts: {} // Initialize as empty, will be populated below
     };
 
-    // Definir 'lang' mais cedo para estar disponível e detectar variações
-    const url = window.location.href;
-    // Regex para encontrar /<lang>-<region>/ ou /<lang>/ (ex: /pt-br/, /en-US/, /pt/)
-    const langMatch = url.match(/\/([a-z]{2})(?:[-_]([a-z]{2}))?\/?(?:\?|#|$)/i);
-    const detectedLang = langMatch ? langMatch[0].replace(/[/\\\?#]/g, '').toLowerCase() : 'en'; // ex: "pt-br", "en", "es"
-    const baseLang = langMatch ? langMatch[1].toLowerCase() : 'en'; // ex: "pt", "en", "es"
-
     // Merge user config with defaults
     const config = window.ChatWidgetConfig ?
         {
@@ -916,6 +936,13 @@
             metadata: { ...defaultConfig.metadata, ...(window.ChatWidgetConfig.metadata || {}) }, // Merge metadata
             detectLocation: typeof window.ChatWidgetConfig.detectLocation === 'boolean' ? window.ChatWidgetConfig.detectLocation : defaultConfig.detectLocation // Merge detectLocation
         } : defaultConfig;
+
+    // Calculate effective language AFTER merging config
+    const finalUserLangSource = config.metadata?.language || navigator.language || 'en';
+    const finalLangMatch = finalUserLangSource.match(/^([a-z]{2})(?:[-_]([a-z]{2}))?/i);
+    // Use the full match (e.g., 'pt-br') if available, otherwise just the base ('pt'), default to 'en'
+    const detectedLang = finalLangMatch ? (finalLangMatch[2] ? finalLangMatch[0].toLowerCase() : finalLangMatch[1].toLowerCase()) : 'en'; 
+    const baseLang = finalLangMatch ? finalLangMatch[1].toLowerCase() : 'en'; // Always the 2-letter code ('pt', 'en')
 
     // Mensagens traduzidas padrão (usadas como último fallback dentro de getText)
     const defaultLanguageTexts = {
@@ -1287,7 +1314,397 @@
         };
     }
 
-    // Função para extrair URLs de GIF ou imagem de um texto
+    // Função para extrair URLs de imagem
+    function extractImageUrls(text) {
+        if (!text) return [];
+        
+        const urls = [];
+        const imageRegex = /https?:\/\/[^\s<>"']+\.(gif|jpe?g|png|webp|svg)(\?[^"'\s<>]*)?/gi;
+        let match;
+        
+        while ((match = imageRegex.exec(text)) !== null) {
+            urls.push(match[0]);
+        }
+        
+        return urls;
+    }
+
+    // Função para verificar se uma string é uma URL válida
+    function isValidUrl(string) {
+        try {
+            new URL(string);
+            return true;
+        } catch (_) {
+            return false;
+        }
+    }
+
+    // Chat Widget Script Version 0.6.14 // v0.6.14: Simplified & fixed quick‑action parsing
+function processQuickActions(text) {
+    if (!text) return { text: '', hasQuickActions: false };
+  
+    let cleaned = text.trim();
+    let inputObject = null;
+    const buttons = [], selectOptions = [], links = [];
+  
+    // 1) extract input/secret
+    cleaned = cleaned.replace(
+      /(?:\[\{|\{\[)(input|secret)([\s\S]*?)(?:\}\]|\]\})/i,
+      (_m, type, body) => {
+        const parts = body.split('|').map(p => p.trim()).filter(Boolean);
+        let placeholder='', prefix='', required=false, validation='none';
+        parts.forEach(p => {
+          const low = p.toLowerCase();
+          if (low==='required')               required = true;
+          else if (['email','url','phone'].includes(low)) validation = low;
+          else if (!placeholder)             placeholder = p;
+          else if (!prefix)                  prefix = p;
+        });
+        inputObject = { type, placeholder, prefix, required, validation };
+        return '';
+      }
+    );
+  
+    // 2) extract [text](action:…) links/buttons
+    cleaned = cleaned.replace(
+      /\[([^\]]+)\]\((action|acao):([^)]+)\)/gi,
+      (_m, txt, _t, act) => {
+        if (isValidUrl(act)) buttons.push({ text: txt, action: act, type:'external' });
+        else                 links.push({ text: txt, action: act });
+        return '';
+      }
+    );
+  
+    // 3) extract buttons [{button|Text|Action}]
+    cleaned = cleaned.replace(
+      /\[\{(?:button|botao)(?:\||:)\|?([^|]+)\|([^|}\n]+)\}\]/gi,
+      (_m, btnText, btnAction) => {
+        const act = btnAction.trim();
+        buttons.push({
+          text: btnText.trim(),
+          action: act,
+          type: isValidUrl(act) ? 'external' : 'normal',
+        });
+        return '';
+      }
+    );
+  
+    // 4) extract select lists [{list|Title|opt:act|…}]
+    cleaned = cleaned.replace(
+      /\[\{(?:list|lista)(?:\||:)\|?([^|}]+)\|([^}]+)\}\]/gi,
+      (_m, title, opts) => {
+        const options = opts.split('|').map(o => {
+          const [t,a] = o.split(':');
+          return { text: t.trim(), action: a.trim(), type: isValidUrl(a.trim()) ? 'external' : 'normal' };
+        });
+        selectOptions.push({ title: title.trim(), options });
+        return '';
+      }
+    );
+  
+    // 5) strip any leftover markers
+    cleaned = cleaned
+      .replace(/\[\{[^\]]*?\}\]/g, '')
+      .replace(/\{\[[^\]]*?\]\}/g, '')
+      .trim();
+  
+    const hasQuickActions = !!(inputObject || buttons.length || selectOptions.length || links.length);
+    return { text: cleaned, input: inputObject, buttons, selectOptions, links, hasQuickActions };
+  }
+    
+    // Função para mostrar uma mensagem do bot com suporte a markdown e conteúdo especial
+    function displayBotMessage(message, metadata) { 
+        const botMessageDiv = document.createElement('div');
+        botMessageDiv.className = 'chat-message bot';
+        
+        // Verificar se a mensagem contém somente uma URL de imagem
+        if (/^https?:\/\/[^\s<>"']+\.(gif|jpe?g|png|webp|svg)(\?[^"'\s<>]*)?$/i.test(message.trim())) {
+            const url = message.trim();
+            
+            // Criar elemento de imagem programaticamente para evitar problemas
+            const imageContainer = document.createElement('div');
+            imageContainer.className = 'image-container';
+            
+            const img = document.createElement('img');
+            img.src = url;
+            img.alt = 'Imagem';
+            
+            // Adicionar onerror handler como função em vez de string
+            img.onerror = function() {
+                this.style.display = 'none';
+                const placeholder = document.createElement('div');
+                placeholder.className = 'image-placeholder';
+                placeholder.textContent = 'Imagem não disponível';
+                this.parentNode.innerHTML = '';
+                this.parentNode.appendChild(placeholder);
+            };
+            
+            imageContainer.appendChild(img);
+            botMessageDiv.appendChild(imageContainer);
+        } else {
+            // Processar objetos de ação rápida
+            const quickActions = processQuickActions(message);
+            console.log('[DEBUG] displayBotMessage quickActions:', quickActions);
+            // Renderizar mensagem normalmente com o texto processado
+            botMessageDiv.innerHTML = renderSpecialContent(quickActions.text);
+            
+            // Renderizar objetos de ação rápida, se houver
+            renderQuickActions(quickActions, botMessageDiv, metadata);
+        }
+        
+        messagesContainer.appendChild(botMessageDiv);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+
+    // Função para obter mensagem traduzida (DEPRECATED - Use getText)
+    function getTranslatedMessage(key) {
+        // Log warning about deprecated usage
+        debug(`Deprecated function getTranslatedMessage called for key: ${key}. Use getText instead.`);
+        // Use the new function as a fallback mechanism
+        return getText(key, '');
+    }
+
+    // Sobrescrita global de fetch para suprimir erros 500
+    const originalFetch = window.fetch;
+    window.fetch = function(url, options) {
+        return originalFetch(url, options)
+            .then(response => {
+                // Se for um erro 500 para o webhook específico, suprimir o erro no console
+                if (response.status === 500 && 
+                    url.toString().includes(config.webhook.url)) {
+                    // Silenciar o erro no console
+                    console.groupCollapsed('[n8n Chat Widget] Requisição tratada (500)');
+                    console.info('URL:', url);
+                    console.info('Status:', response.status);
+                    console.groupEnd();
+                    
+                    // Clonar a resposta para não alterá-la
+                    const originalClone = response.clone();
+                    
+                    // Retornar uma resposta falsificada para o código continuar funcionando
+                    return {
+                        ok: true,
+                        status: 200,
+                        statusText: "OK",
+                        headers: new Headers({ "content-type": "application/json" }),
+                        json: async () => ({ output: getText('fallback', 'Hi! How can I help?') }),
+                        text: async () => JSON.stringify({ output: getText('fallback', 'Hi! How can I help?') }),
+                        clone: function() { return this; }
+                    };
+                }
+                return response;
+            })
+            .catch(error => {
+                // Se a URL for do webhook, interceptar o erro
+                if (typeof url === 'string' && url.includes(config.webhook.url)) {
+                    console.groupCollapsed('[n8n Chat Widget] Erro de rede interceptado');
+                    console.info('URL:', url);
+                    console.info('Erro:', error.message);
+                    console.groupEnd();
+                    
+                    // Retornar uma resposta falsificada
+                    return {
+                        ok: true,
+                        status: 200,
+                        statusText: "OK",
+                        headers: new Headers({ "content-type": "application/json" }),
+                        json: async () => ({ output: getText('fallback', 'Hi! How can I help?') }),
+                        text: async () => JSON.stringify({ output: getText('fallback', 'Hi! How can I help?') }),
+                        clone: function() { return this; }
+                    };
+                }
+                
+                // Para outras URLs, deixar o erro passar normalmente
+                throw error;
+            });
+    };
+
+    async function startNewConversation() {
+        console.log("[DEBUG] startNewConversation: START"); // Added log
+        currentSessionId = generateUUID();
+        // Get metadata asynchronously first
+        const metadata = await getMetadata();
+
+        const data = {
+            action: "loadPreviousSession",
+            sessionId: currentSessionId,
+            route: config.webhook.route || 'general',
+            metadata: metadata // Use the gathered metadata object
+        };
+
+    // Remove any existing initial message (like "connecting...")
+    const initialMessageDiv = messagesContainer.querySelector('.chat-message.bot');
+    if (initialMessageDiv) {
+        initialMessageDiv.remove();
+    }
+
+    // Always show configured greeting as first bot message
+    displayBotMessage( getGreetingMessage() );
+    
+    // If skipping welcome, stop here to avoid default fallback message
+    if (config.skipWelcomeScreen) {
+        return;
+    }
+    
+    // Show typing indicator while loading
+    const typingIndicator = showTypingIndicator(); // Keep reference
+
+        try {
+            debug('Iniciando nova conversa:', data);
+            const response = await fetch(config.webhook.url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify(data)
+            });
+
+            debug('Resposta do webhook - Status:', response.status);
+            let responseMessage = getText('processing', 'Processing...'); // Use new function
+            
+            // Verificar se a resposta é válida
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            // Tentar ler o texto da resposta primeiro
+            const responseText = await response.text();
+            debug('Resposta do webhook - Texto:', responseText);
+
+            try {
+                // Tentar fazer o parse do JSON apenas se houver conteúdo
+                if (responseText && responseText.trim()) {
+                    const data = JSON.parse(responseText);
+                    debug('Resposta do webhook - JSON:', data);
+                    
+                    // Verificar diferentes formatos possíveis de resposta
+                    if (data.output) {
+                        responseMessage = data.output;
+                    } else if (data.data && Array.isArray(data.data) && data.data.length > 0) {
+                        if (data.data[0].output) {
+                            responseMessage = data.data[0].output;
+                        }
+                    } else if (typeof data === 'string') {
+                        responseMessage = data;
+                    } else {
+                        debug('Resposta em formato desconhecido:', data);
+                        responseMessage = getText('fallback', 'Hi! How can I help?'); // Use new function
+                    }
+                } else {
+                    debug('Resposta vazia do webhook');
+                    responseMessage = getText('fallback', 'Hi! How can I help?'); // Use new function
+                }
+            } catch (error) {
+                debug('Erro ao processar JSON da resposta:', error, true);
+                responseMessage = getText('fallback', 'Hi! How can I help?'); // Use new function
+            }
+            
+            // Remover o indicador de digitação
+            hideTypingIndicator();
+            
+            // Mostrar a resposta do bot
+            displayBotMessage(responseMessage, metadata);
+        } catch (error) {
+            console.error("[DEBUG] startNewConversation().catch block triggered. Error object:", error); // Added log
+            console.error("[DEBUG] Error message:", error?.message); // Added log
+            console.error("[DEBUG] Error stack:", error?.stack); // Added log
+            debug('Erro ao iniciar conversa:', error, true);
+            hideTypingIndicator();
+            displayBotMessage(getText('error', 'Sorry, something went wrong.'), metadata); // Use new function for error message
+        }
+    }
+    
+    async function sendMessage(message, { maskedMessage = null, skipLocal = false } = {}) {
+        if (!message || message.trim() === '') return;
+
+        // Get metadata asynchronously first
+        const metadata = await getMetadata();
+
+        const messageData = {
+            action: "sendMessage",
+            sessionId: currentSessionId,
+            route: config.webhook.route || 'general',
+            chatInput: message,
+            metadata: metadata // Use the gathered metadata object
+        };
+
+    // Exibir mensagem do usuário
+    if (!skipLocal) {
+        const userMessageDiv = document.createElement('div');
+        userMessageDiv.className = 'chat-message user';
+        userMessageDiv.textContent = maskedMessage || message;
+        messagesContainer.appendChild(userMessageDiv);
+    }
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+    // Mostrar indicador de digitação
+    showTypingIndicator();
+
+    try {
+        debug('Enviando mensagem para webhook:', messageData);
+        const response = await fetch(config.webhook.url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify(messageData)
+        });
+
+        debug('Resposta do webhook - Status:', response.status);
+        let responseMessage = getText('processing', 'Processing...'); // Use new function
+            
+        // Verificar se a resposta é válida
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        // Tentar ler o texto da resposta primeiro
+        const responseText = await response.text();
+        debug('Resposta do webhook - Texto:', responseText);
+
+        try {
+            // Tentar fazer o parse do JSON apenas se houver conteúdo
+            if (responseText && responseText.trim()) {
+                const data = JSON.parse(responseText);
+                debug('Resposta do webhook - JSON:', data);
+                
+                // Verificar diferentes formatos possíveis de resposta
+                if (data.output) {
+                    responseMessage = data.output;
+                } else if (data.data && Array.isArray(data.data) && data.data.length > 0) {
+                    if (data.data[0].output) {
+                        responseMessage = data.data[0].output;
+                    }
+                } else if (typeof data === 'string') {
+                    responseMessage = data;
+                } else {
+                    debug('Resposta em formato desconhecido:', data);
+                    responseMessage = getText('fallback', 'Hi! How can I help?'); // Use new function
+                }
+            } else {
+                debug('Resposta vazia do webhook');
+                responseMessage = getText('fallback', 'Hi! How can I help?'); // Use new function
+            }
+        } catch (error) {
+            debug('Erro ao processar JSON da resposta:', error, true);
+            responseMessage = getText('fallback', 'Hi! How can I help?'); // Use new function
+        }
+        
+        // Remover o indicador de digitação
+        hideTypingIndicator();
+        
+        // Mostrar a resposta do bot
+        displayBotMessage(responseMessage, metadata);
+    } catch (error) {
+        debug('Erro na chamada do webhook:', error, true);
+        hideTypingIndicator();
+        displayBotMessage(getText('error', 'Sorry, something went wrong.'), metadata); // Use new function for error message
+    }
+    }
+
+    // Função auxiliar para extrair URLs de imagem
     function extractGifURL(text) {
         if (!text) return null;
         
@@ -1353,7 +1770,7 @@
         if (!text) return '';
         
         // Primeiro passo: verificar se o texto completo é uma URL de imagem
-        if (/^https?:\/\/[^\s]+\.(gif|jpe?g|png|webp|svg)(\?[^"'\s<>]*)?$/i.test(text.trim())) {
+        if (/^https?:\/\/[^\s<>"']+\.(gif|jpe?g|png|webp|svg)(\?[^"'\s<>]*)?$/i.test(text.trim())) {
             const url = text.trim();
             
             // Usar template string sem quebras de linha para evitar problemas
@@ -1444,7 +1861,7 @@
         });
         
         // Preservar botões - [{button:texto|mensagem}] ou [{botao:texto|mensagem}]
-        html = html.replace(/\[\{(button|botao):([^|]+)\|([^|}\n]+)\}\]/g, (match) => {
+        html = html.replace(/\[\{(button|botao):([^|]+)\|([^|}\n]+)\}\]/gi, (match) => {
             const marker = `__QUICK_ACTION_BUTTON_${markerIndex++}__`;
             quickActionMarkers.push({ marker, content: match });
             return marker;
@@ -1457,24 +1874,11 @@
             return marker;
         });
         
+        // Limpar espaços extras após processamento
+        html = html.trim();
+        
         // Processar imagens markdown - ![alt](url)
-        html = html.replace(/!\[(.*?)\]\((https?:\/\/[^)]+)\)/gi, function(match, alt, url) {
-            return `<img src="${url}" alt="${alt || 'Imagem'}" onerror="this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%2270%22 viewBox=%220 0 100 70%22%3E%3Crect width=%22100%22 height=%2270%22 fill=%22%23f0f0f0%22/%3E%3Ctext x=%2250%22 y=%2235%22 font-family=%22Arial%22 font-size=%228%22 text-anchor=%22middle%22 fill=%22%23999%22%3EImagem não disponível%3C/text%3E%3C/svg%3E';">`;
-        });
-        
-        // Procurar por URLs de imagem diretamente no texto
-        html = html.replace(/(https?:\/\/[^\s<>"']+?\.(gif|jpe?g|png|webp)(\?[^"'\s<>]*)?)/gi, function(match) {
-            // Verificar se já está dentro de uma tag img
-            if (html.indexOf(`<img src="${match}"`) >= 0 || 
-                html.indexOf(`<img src='${match}'`) >= 0) {
-                return match;
-            }
-            return `<img src="${match}" alt="Imagem" onerror="this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%2270%22 viewBox=%220 0 100 70%22%3E%3Crect width=%22100%22 height=%2270%22 fill=%22%23f0f0f0%22/%3E%3Ctext x=%2250%22 y=%2235%22 font-family=%22Arial%22 font-size=%228%22 text-anchor=%22middle%22 fill=%22%23999%22%3EImagem não disponível%3C/text%3E%3C/svg%3E';">`;
-        });
-        
-        // Pré-processamento para blocos de código
-        html = html.replace(/```([^`]+)```/g, '<pre>$1</pre>');
-        html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
+        html = processImageMarkdown(html);
         
         // Processar cabeçalhos
         html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
@@ -1531,15 +1935,15 @@
     }
 
     // Função para mostrar uma mensagem do bot com suporte a markdown e conteúdo especial
-    function displayBotMessage(message) {
+    function displayBotMessage(message, metadata) { 
         const botMessageDiv = document.createElement('div');
         botMessageDiv.className = 'chat-message bot';
         
         // Verificar se a mensagem contém somente uma URL de imagem
-        if (/^https?:\/\/[^\s]+\.(gif|jpe?g|png|webp|svg)(\?[^"'\s<>]*)?$/i.test(message.trim())) {
+        if (/^https?:\/\/[^\s<>"']+\.(gif|jpe?g|png|webp|svg)(\?[^"'\s<>]*)?$/i.test(message.trim())) {
             const url = message.trim();
             
-            // Criar elemento de imagem programaticamente para evitar problemas de escape
+            // Criar elemento de imagem programaticamente para evitar problemas
             const imageContainer = document.createElement('div');
             imageContainer.className = 'image-container';
             
@@ -1562,351 +1966,21 @@
         } else {
             // Processar objetos de ação rápida
             const quickActions = processQuickActions(message);
-            
+            console.log('[DEBUG] displayBotMessage quickActions:', quickActions);
             // Renderizar mensagem normalmente com o texto processado
             botMessageDiv.innerHTML = renderSpecialContent(quickActions.text);
             
             // Renderizar objetos de ação rápida, se houver
-            renderQuickActions(quickActions, botMessageDiv);
+            renderQuickActions(quickActions, botMessageDiv, metadata);
         }
         
         messagesContainer.appendChild(botMessageDiv);
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
     }
 
-    // Função para obter mensagem traduzida (DEPRECATED - Use getText)
-    function getTranslatedMessage(key) {
-        // Log warning about deprecated usage
-        debug(`Deprecated function getTranslatedMessage called for key: ${key}. Use getText instead.`);
-        // Use the new function as a fallback mechanism
-        return getText(key, '');
-    }
-
-    // Sobrescrita global de fetch para suprimir erros 500
-    const originalFetch = window.fetch;
-    window.fetch = function(url, options) {
-        return originalFetch(url, options)
-            .then(response => {
-                // Se for um erro 500 para o webhook específico, suprimir o erro no console
-                if (response.status === 500 && 
-                    url.toString().includes(config.webhook.url)) {
-                    // Silenciar o erro no console
-                    console.groupCollapsed('[n8n Chat Widget] Requisição tratada (500)');
-                    console.info('URL:', url);
-                    console.info('Status:', response.status);
-                    console.groupEnd();
-                    
-                    // Clonar a resposta para não alterá-la
-                    const originalClone = response.clone();
-                    
-                    // Retornar uma resposta falsificada para o código continuar funcionando
-                    return {
-                        ok: true,
-                        status: 200,
-                        statusText: "OK",
-                        headers: new Headers({ "content-type": "application/json" }),
-                        json: async () => ({ output: getText('fallback', 'Hi! How can I help?') }),
-                        text: async () => JSON.stringify({ output: getText('fallback', 'Hi! How can I help?') }),
-                        clone: function() { return this; }
-                    };
-                }
-                return response;
-            })
-            .catch(error => {
-                // Se a URL for do webhook, interceptar o erro
-                if (typeof url === 'string' && url.includes(config.webhook.url)) {
-                    console.groupCollapsed('[n8n Chat Widget] Erro de rede interceptado');
-                    console.info('URL:', url);
-                    console.info('Erro:', error.message);
-                    console.groupEnd();
-                    
-                    // Retornar uma resposta falsificada
-                    return {
-                        ok: true,
-                        status: 200,
-                        statusText: "OK",
-                        headers: new Headers({ "content-type": "application/json" }),
-                        json: async () => ({ output: getText('fallback', 'Hi! How can I help?') }),
-                        text: async () => JSON.stringify({ output: getText('fallback', 'Hi! How can I help?') }),
-                        clone: function() { return this; }
-                    };
-                }
-                
-                // Para outras URLs, deixar o erro passar normalmente
-                throw error;
-            });
-    };
-
-    async function startNewConversation() {
-        currentSessionId = generateUUID();
-        // Get metadata asynchronously first
-        const metadata = await getMetadata();
-
-        const data = {
-            action: "loadPreviousSession",
-            sessionId: currentSessionId,
-            route: config.webhook.route || 'general',
-            metadata: metadata // Use the gathered metadata object
-        };
-
-        // Remove any existing initial message (like "connecting...")
-        const initialMessageDiv = messagesContainer.querySelector('.chat-message.bot');
-        if (initialMessageDiv) {
-            initialMessageDiv.remove();
-        }
-
-        // Show typing indicator while loading
-        const typingIndicator = showTypingIndicator(); // Keep reference
-
-        try {
-            debug('Iniciando nova conversa:', data);
-            const response = await fetch(config.webhook.url, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
-                },
-                body: JSON.stringify(data)
-            });
-
-            debug('Resposta do webhook - Status:', response.status);
-            // Note: We don't use the response content directly for the *greeting* here.
-            // The greeting comes from config or defaults.
-
-            try {
-                // We still need to consume the response body even if not using its content for greeting
-                const responseText = await response.text();
-                debug('Resposta inicial do webhook (consumida):', responseText);
-                if (responseText && responseText.trim()) {
-                     const responseData = JSON.parse(responseText);
-                     debug('Resposta JSON inicial do webhook (consumida):', responseData);
-                     // Potentially handle historical messages here in the future if needed
-                }
-            } catch (error) {
-                 debug('Erro ao processar resposta inicial do webhook (ignorado para saudação):', error);
-            }
-
-            // --- Determine the final greeting message ---
-            const finalGreetingMessage = getGreetingMessage();
-            debug('Mensagem de saudação final a ser exibida:', finalGreetingMessage);
-
-            // --- Render the final greeting ---
-            hideTypingIndicator(); // Hide indicator *before* showing the actual message
-            displayBotMessage(finalGreetingMessage); // Use the function that handles quick actions
-
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
-            return finalGreetingMessage; // Return the rendered message content
-
-        } catch (error) {
-            debug('Erro ao iniciar conversa:', error, true);
-            hideTypingIndicator(); // Ensure indicator is hidden on error
-
-            // --- Render the fallback greeting on error ---
-            const fallbackMessage = getGreetingMessage();
-            displayBotMessage(fallbackMessage); // Use the function that handles quick actions
-
-            throw error; // Re-throw error if needed
-        }
-    }
-    
-    async function sendMessage(message, { maskedMessage = null, skipLocal = false } = {}) {
-        if (!message || message.trim() === '') return;
-
-        // Get metadata asynchronously first
-        const metadata = await getMetadata();
-
-        const messageData = {
-            action: "sendMessage",
-            sessionId: currentSessionId,
-            route: config.webhook.route || 'general',
-            chatInput: message,
-            metadata: metadata // Use the gathered metadata object
-        };
-
-        // Exibir mensagem do usuário
-        if (!skipLocal) {
-            const userMessageDiv = document.createElement('div');
-            userMessageDiv.className = 'chat-message user';
-            userMessageDiv.textContent = maskedMessage || message;
-            messagesContainer.appendChild(userMessageDiv);
-        }
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
-
-        // Mostrar indicador de digitação
-        showTypingIndicator();
-
-        try {
-            debug('Enviando mensagem para webhook:', messageData);
-            const response = await fetch(config.webhook.url, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
-                },
-                body: JSON.stringify(messageData)
-            });
-
-            debug('Resposta do webhook - Status:', response.status);
-            let responseMessage = getText('processing', 'Processing...'); // Use new function
-            
-            // Verificar se a resposta é válida
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-
-            // Tentar ler o texto da resposta primeiro
-            const responseText = await response.text();
-            debug('Resposta do webhook - Texto:', responseText);
-
-            try {
-                // Tentar fazer o parse do JSON apenas se houver conteúdo
-                if (responseText && responseText.trim()) {
-                    const data = JSON.parse(responseText);
-                    debug('Resposta do webhook - JSON:', data);
-                    
-                    // Verificar diferentes formatos possíveis de resposta
-                    if (data.output) {
-                        responseMessage = data.output;
-                    } else if (data.data && Array.isArray(data.data) && data.data.length > 0) {
-                        if (data.data[0].output) {
-                            responseMessage = data.data[0].output;
-                        }
-                    } else if (typeof data === 'string') {
-                        responseMessage = data;
-                    } else {
-                        debug('Resposta em formato desconhecido:', data);
-                        responseMessage = getText('fallback', 'Hi! How can I help?'); // Use new function
-                    }
-                } else {
-                    debug('Resposta vazia do webhook');
-                    responseMessage = getText('fallback', 'Hi! How can I help?'); // Use new function
-                }
-            } catch (error) {
-                debug('Erro ao processar JSON da resposta:', error, true);
-                responseMessage = getText('fallback', 'Hi! How can I help?'); // Use new function
-            }
-            
-            // Remover o indicador de digitação
-            hideTypingIndicator();
-            
-            // Mostrar a resposta do bot
-            displayBotMessage(responseMessage);
-        } catch (error) {
-            debug('Erro na chamada do webhook:', error, true);
-            hideTypingIndicator();
-            displayBotMessage(getText('error', 'Sorry, something went wrong.')); // Use new function for error message
-        }
-    }
-
-    // Função auxiliar para extrair URLs de imagem
-    function extractImageUrls(text) {
-        if (!text) return [];
-        
-        const urls = [];
-        const imageRegex = /https?:\/\/[^\s<>"']+\.(gif|jpe?g|png|webp|svg)(\?[^"'\s<>]*)?/gi;
-        let match;
-        
-        while ((match = imageRegex.exec(text)) !== null) {
-            urls.push(match[0]);
-        }
-        
-        return urls;
-    }
-
-    // Função para verificar se uma string é uma URL válida
-    function isValidUrl(string) {
-        try {
-            new URL(string);
-            return true;
-        } catch (_) {
-            return false;
-        }
-    }
-
-    // Função para processar objetos de ação rápida na mensagem
-    function processQuickActions(text) {
-        if (!text) return { text: '', hasQuickActions: false };
-        
-        let processedText = text.trim();
-        let buttons = [];
-        let selectOptions = [];
-        let links = [];
-        let inputObject = null;
-        
-        // Process input/secret quick action
-        processedText = processedText.replace(/(?:\[\{|\{\[)(input|secret)([\s\S]*?)(?:\}\]|\]\})/i,
-            (match, type, body) => {
-                // split by '|' and remove empty
-                const parts = body.split('|').map(s=>s.trim()).filter(s=>s);
-                let placeholder = '', prefix = '', required = false, validation = 'none';
-                // categorize parts
-                parts.forEach(p => {
-                    const low = p.toLowerCase();
-                    if (low === 'required') required = true;
-                    else if (['email','url','phone'].includes(low)) validation = low;
-                    else if (!placeholder) placeholder = p;
-                    else if (!prefix) prefix = p;
-                });
-                inputObject = { type, placeholder, prefix, required, validation };
-                return '';
-            }
-        );
-
-        // Processar links de ação rápida - [texto](action:mensagem) ou [texto](acao:mensagem)
-        processedText = processedText.replace(/\[([^\]]+)\]\((action|acao):([^)]+)\)/g, (match, text, actionType, action) => {
-            // Verificar se a ação é uma URL
-            if (isValidUrl(action)) {
-                buttons.push({ text, action, type: 'external' });
-            } else {
-                links.push({ text, action });
-            }
-            return ''; // Remover o link do texto
-        });
-        
-        // Remove ALL malformed [{...}] directives first
-        processedText = processedText.replace(/\[\{[^\]]*?\}\]/g, '').replace(/\{\[[^\]]*?\]\}/g, '');
-        // Extract ALL [{button|Text|Action}] objects (Action can be plain text or URL)
-        const buttonRegex = /\[\{(?:button|botao)\|([^|}]+)\|([^|}\n]+)\}\]/gi;
-        let buttonMatch;
-        while ((buttonMatch = buttonRegex.exec(processedText)) !== null) {
-            const [, btnText, btnAction] = buttonMatch;
-            const actionVal = (btnAction || btnText).trim();
-            const isUrl = isValidUrl(actionVal);
-            buttons.push({ text: btnText.trim(), action: actionVal, type: isUrl ? 'external' : 'normal' });
-        }
-        // Remove ALL button objects and any trailing markdown/parenthesis from the text before markdown rendering
-        processedText = processedText.replace(buttonRegex, '').replace(/\([^)]+\)/g, '').replace(/\s{2,}/g, ' ').trim();
-        // Suporte a até 4 botões por mensagem (não limitar aqui, limitar na renderização)
-        // Suporte a outros tipos de objetos pode ser adicionado aqui, se necessário
-        
-        // Processar listas de seleção - [{list:titulo|opção1:mensagem1|opção2:mensagem2}] ou [{lista:titulo|opção1:mensagem1|opção2:mensagem2}]
-        processedText = processedText.replace(/\[\{(list|lista):([^|]+)\|((?:[^|:]+:[^|:]+\|?)+)\}\]/g, (match, listType, title, optionsText) => {
-            const options = optionsText.split('|').map(option => {
-                const [text, action] = option.split(':');
-                return { text, action, type: isValidUrl(action) ? 'external' : 'normal' };
-            });
-            selectOptions.push({ title, options });
-            return ''; // Remover a lista do texto
-        });
-        
-        // Limpar espaços extras após processamento
-        processedText = processedText.trim();
-        
-        // Verificar se há objetos de ação rápida
-        const hasQuickActions = inputObject !== null || buttons.length > 0 || selectOptions.length > 0 || links.length > 0;
-        
-        return {
-            text: processedText,
-            hasQuickActions,
-            buttons: inputObject ? [] : buttons,
-            selectOptions: inputObject ? [] : selectOptions,
-            links: inputObject ? [] : links,
-            input: inputObject
-        };
-    }
-    
     // Função para renderizar objetos de ação rápida
-    function renderQuickActions(quickActions, messageElement) {
+    function renderQuickActions(quickActions, messageElement, metadata) { 
+        console.log('[DEBUG] renderQuickActions called:', quickActions, 'with metadata:', metadata);
         if (!quickActions.hasQuickActions) return;
         
         // Handle single input/secret object
@@ -1919,48 +1993,85 @@
             wrapper.style.gap = '4px';
             wrapper.style.marginTop = '10px';
             wrapper.style.alignItems = 'center';
+            
             let countrySelect = null;
+            let inEl = null; // Declare input element variable here
+
             if (obj.validation === 'phone') {
+                inEl = document.createElement('input'); 
+                inEl.type = 'text'; // Phone input is always text
+                inEl.placeholder = obj.placeholder;
+                if (obj.required) inEl.required = true;
+                inEl.style.flex = '1';
+                inEl.style.height = '40px';
+                inEl.style.paddingRight = '32px'; // room for tick
+
                 countrySelect = document.createElement('select');
                 countrySelect.className = 'phone-code-select';
-                // Full country list
-                phoneCountryList.forEach(({iso, dialCode}) => {
+                // Full country list - v0.6.6: Include name in dropdown
+                phoneCountryList.forEach(({iso, name, dialCode}) => {
                     const flag = iso.split('').map(c=>String.fromCodePoint(0x1f1e6 + c.charCodeAt(0)-65)).join('');
                     const opt = document.createElement('option');
                     opt.value = dialCode;
-                    opt.textContent = `${flag} +${dialCode}`;
+                    // Display Flag + Name (+DialCode)
+                    opt.textContent = `${flag} ${name} (+${dialCode})`; 
                     countrySelect.appendChild(opt);
                 });
-                wrapper.appendChild(countrySelect);
-                // Defer input creation until after select
-                setTimeout(() => {
-                    if (inEl && inEl.value && inEl.value.startsWith('+')) {
-                        const found = phoneCountryList.find(c=> inEl.value.slice(1).startsWith(c.dialCode));
-                        if (found) countrySelect.value = found.dialCode;
+
+                // v0.6.7: Pre-select country based on detected location & prefill input
+                let prefilled = false;
+                if (metadata && metadata.countryCode) { 
+                    const detectedCountry = phoneCountryList.find(c => c.iso === metadata.countryCode); 
+                    if (detectedCountry) {
+                        countrySelect.value = detectedCountry.dialCode;
+                        inEl.value = '+' + detectedCountry.dialCode + ' '; // Prefill input
+                        debug('Pre-selected country based on metadata:', detectedCountry);
+                        prefilled = true;
                     }
-                }, 0);
-                // Sync input/select
+                }
+                // Fallback to US (+1) if detection failed or country not found
+                if (!prefilled) {
+                    const fallbackCountry = phoneCountryList.find(c => c.iso === 'US');
+                    if (fallbackCountry) {
+                        countrySelect.value = fallbackCountry.dialCode;
+                        inEl.value = '+' + fallbackCountry.dialCode + ' '; // Prefill input with fallback
+                        debug('Pre-selected fallback country (US):', fallbackCountry);
+                    }
+                }
+                
+                // Append select and input to wrapper *after* potential prefill
+                wrapper.appendChild(countrySelect);
+                wrapper.appendChild(inEl);
+
+                // Sync input/select listener
                 countrySelect.addEventListener('change', () => {
-                    const raw = inEl.value.replace(/^\+?\d*/, '');
-                    inEl.value = '+' + countrySelect.value + (raw ? ' ' + raw.replace(/^\d+\s*/, '') : '');
+                    const currentInput = wrapper.querySelector('input'); // Re-select inEl just in case
+                    if (!currentInput) return;
+                    const raw = currentInput.value.replace(/^\+/, '');
+                    currentInput.value = '+' + countrySelect.value + (raw ? ' ' + raw.replace(/^\d+\s*/, '') : '');
+                    currentInput.focus(); // Keep focus on input
                 });
             
+            } else { // Handle non-phone inputs (secret or other text)
+                inEl = document.createElement('input'); 
+                inEl.type = obj.type === 'secret' ? 'password' : 'text';
+                inEl.placeholder = obj.placeholder;
+                if (obj.required) inEl.required = true;
+                inEl.style.flex = '1';
+                inEl.style.height = '40px';
+                inEl.style.paddingRight = '32px'; // room for tick
+                wrapper.appendChild(inEl);
             }
-            const inEl = document.createElement('input');
-            inEl.type = obj.type === 'secret' ? 'password' : 'text';
-            inEl.placeholder = obj.placeholder;
-            if (obj.required) inEl.required = true;
-            inEl.style.flex = '1';
-            inEl.style.height = '40px';
-            inEl.style.paddingRight = '32px'; // room for tick
-            wrapper.appendChild(inEl);
+
             // Tick container
             const tick = document.createElement('span');
             tick.className = 'valid-check';
             tick.textContent = '✓';
             tick.style.display = 'none';
             tick.style.position = 'absolute';
-            tick.style.right = obj.validation === 'phone' ? '80px' : '44px'; // Move left if phone select present
+            // v0.6.4: further adjust green tick for phone input
+                // v0.6.5: move tick further left for phone input
+                tick.style.right = '55px'; // Position tick inside input padding to avoid send button
             tick.style.top = '50%';
             tick.style.transform = 'translateY(-50%)';
             tick.style.color = 'green';
@@ -1978,7 +2089,7 @@
             btn.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M22 2L11 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
             wrapper.appendChild(btn);
             container.appendChild(wrapper);
-            messageElement.appendChild(container);
+            messageElement.appendChild(container); 
             textarea.disabled = true;
             sendButton.disabled = true;
             setTimeout(() => inEl.focus(), 50); // Focus after a short delay
@@ -2055,9 +2166,8 @@
             container.className = 'quick-action-container';
             
             // Adicionar botões (limitado a 4)
-            const maxButtons = 4;
-            if (quickActions.buttons.length > 0 && quickActions.selectOptions.length === 0) {
-                quickActions.buttons.slice(0, maxButtons).forEach(button => {
+            if (quickActions.buttons.length > 0) {
+                quickActions.buttons.slice(0, 4).forEach(button => {
                     const buttonElement = document.createElement('button');
                     buttonElement.className = `quick-action-button ${button.type === 'external' ? 'external' : ''}`;
                     buttonElement.textContent = button.text;
@@ -2067,7 +2177,7 @@
                     if (button.type === 'external') {
                         // append icon
                         const icon = document.createElement('span');
-                        icon.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 3h7m0 0v7m0-7L10 14m-4 0v7a2 2 0 002 2h7a2 2 0 002-2v-7"/></svg>';
+                        icon.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 3h7m0 0v7m0-7L10 14m-4 0L3 7"/></svg>';
                         buttonElement.appendChild(icon);
                     }
                     container.appendChild(buttonElement);
@@ -2075,7 +2185,7 @@
             }
             
             // Adicionar lista de seleção (apenas uma, se não houver botões)
-            if (quickActions.selectOptions.length > 0 && quickActions.buttons.length === 0) {
+            if (quickActions.selectOptions.length > 0) {
                 const selectOption = quickActions.selectOptions[0];
                 const selectElement = document.createElement('select');
                 selectElement.className = 'quick-action-select';
@@ -2192,6 +2302,9 @@
                 }, 100);
             })
             .catch(function(error) {
+                console.error("[DEBUG] startNewConversation().catch block triggered. Error object:", error); // Added log
+                console.error("[DEBUG] Error message:", error?.message); // Added log
+                console.error("[DEBUG] Error stack:", error?.stack); // Added log
                 debug('Erro ao iniciar conversa no click:', error, true);
                 // Error handling inside startNewConversation already displays the fallback greeting.
                 // Reportar erro se existir callback de erro configurado
@@ -2251,6 +2364,9 @@
                         setTimeout(() => textarea.focus(), 100);
                     })
                     .catch((error) => {
+                        console.error("[DEBUG] startNewConversation().catch block triggered. Error object:", error); // Added log
+                        console.error("[DEBUG] Error message:", error?.message); // Added log
+                        console.error("[DEBUG] Error stack:", error?.stack); // Added log
                         debug('Erro ao iniciar conversa (skip welcome):', error, true);
                         // Error handling inside startNewConversation already displays the fallback greeting.
                         if (typeof config.onError === 'function') config.onError(error);
@@ -2341,10 +2457,18 @@
         proactivePromptElement.className = `proactive-prompt${config.style.position === 'left' ? ' position-left' : ''}`;
         proactivePromptElement.innerHTML = `
             ${promptMessage}
-            <button class="close-prompt" title="Fechar">&times;</button>
+            <button class="close-prompt" title="Fechar" style="color: ${config.style.secondaryColor}">×</button>
         `;
         
         widgetContainer.appendChild(proactivePromptElement);
+
+                // Add listener for clicking the prompt itself to open chat
+        proactivePromptElement.addEventListener('click', () => {
+            debug('Proactive prompt clicked!'); 
+            toggleChat(); 
+            hideProactivePrompt(); 
+        });
+        proactivePromptElement.style.cursor = 'pointer'; // Indicate it's clickable
 
         // Adicionar listener para fechar o prompt
         const closePromptButton = proactivePromptElement.querySelector('.close-prompt');
@@ -2428,6 +2552,7 @@
 
     // --- Location Detection Function ---
     async function fetchUserLocation() {
+        console.log("[DEBUG] fetchUserLocation: START"); // Added log
         let locationResult = null; // Store result to dispatch event later
         try {
             if (!config.detectLocation) {
@@ -2457,6 +2582,7 @@
             }
 
         } catch (error) {
+            console.error("[DEBUG] fetchUserLocation: CAUGHT ERROR", error); // Added log
             debug('Error fetching user location:', error, true);
             locationResult = null; // Ensure result is null on error
         }
@@ -2465,12 +2591,14 @@
              const event = new CustomEvent('n8nLocationDetected', { detail: locationResult });
              document.body.dispatchEvent(event);
              debug('Dispatched n8nLocationDetected event with detail:', locationResult);
+             console.log("[DEBUG] fetchUserLocation: FINALLY, returning", locationResult); // Added log
              return locationResult; // Return the result for getMetadata
         }
     }
 
     // --- Metadata Gathering Function ---
     async function getMetadata() {
+        console.log("[DEBUG] getMetadata: START"); // Added log
         let locationData = null;
         if (config.detectLocation && !config.metadata?.detectedLocation) { // Only fetch if enabled and not overridden
             locationData = await fetchUserLocation();
@@ -2499,6 +2627,9 @@
         };
 
         debug('Final metadata object:', finalMetadata);
+        console.log("[DEBUG] getMetadata: SUCCESS, returning metadata"); // Added log
         return finalMetadata;
     }
+
+    loadPhoneCountryList();
 })();
