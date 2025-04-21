@@ -1,3 +1,4 @@
+// v0.6.9: fix missing parenthesis in IIFE
 (function() {
     // v0.6.5: define phoneCountryList to avoid ReferenceErrors
     const countriesFilePath = 'phone-countries.json'; // Path relative to chat-widget.js
@@ -2943,4 +2944,4 @@ function processQuickActions(text) {
         // Widget might still function but phone input pre-selection will fail.
     });
 
-    }());
+}());

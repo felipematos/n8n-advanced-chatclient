@@ -1,2 +1,4 @@
 # windsurf rules
 .windsurfrules
+eslint*.*
+pachake.json
