@@ -1,4 +1,4 @@
-// v0.6.9: fix missing parenthesis in IIFE
+// v0.6.14: remove stray backticks
 (function() {
     // v0.6.5: define phoneCountryList to avoid ReferenceErrors
     const countriesFilePath = 'phone-countries.json'; // Path relative to chat-widget.js
@@ -1490,6 +1490,7 @@
             debug('Erro ao processar JSON da resposta:', error, true);
             return { output: "Olá! Como posso ajudar?" };
         }
+    }
 
 
     // Função para mostrar o indicador de digitação
@@ -2590,7 +2591,8 @@ function processQuickActions(text) {
     }
 
     // Modificar o handler do botão new-chat-btn
-    newChatBtn.addEventListener('click', async function(e) {
+    if (newChatBtn) {
+        newChatBtn.addEventListener('click', async function(e) {
         e.preventDefault();
 
         // Apenas esconder a tela de nova conversa, mantendo o cabeçalho
@@ -2611,21 +2613,13 @@ function processQuickActions(text) {
                 textarea.focus();
             }, 100);
         } catch (error) {
-            console.error("[DEBUG] startNewConversation().catch block triggered. Error object:", error); // Added log
-            console.error("[DEBUG] Error message:", error?.message); // Added log
-            console.error("[DEBUG] Error stack:", error?.stack); // Added log
-            debug('Erro ao iniciar conversa no click:', error, true);
             // Error handling inside startNewConversation already displays the fallback greeting.
-            // Reportar erro se existir callback de erro configurado
-            if (typeof config.onError === 'function') {
-                config.onError(error);
-            }
-            // Ainda assim, focar na caixa de texto após o erro
-            setTimeout(function() {
-                textarea.focus();
-            }, 100);
         }
-    
+    });
+} else {
+    debug('newChatBtn not found, cannot attach listener.');
+}
+
     sendButton.addEventListener('click', () => {
         const message = textarea.value.trim();
         if (message) {
@@ -2944,4 +2938,4 @@ function processQuickActions(text) {
         // Widget might still function but phone input pre-selection will fail.
     });
 
-}());
+})();
