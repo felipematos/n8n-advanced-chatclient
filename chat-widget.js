@@ -1053,31 +1053,32 @@
             hideProactivePrompt(); // Hide prompt when opening chat
 
             // Determine if we need to show welcome screen or start a conversation
-            if (config.skipWelcomeScreen) {
-                // Always skip the welcome screen if enabled
-                chatContainer.querySelector('.new-conversation').style.display = 'none';
-                chatInterface.classList.add('active');
-                startNewConversation()
-                    .then(() => setTimeout(() => textarea.focus(), 100))
-                    .catch((error) => {
-                        console.error("[DEBUG] startNewConversation().catch block triggered. Error object:", error);
-                        debug('Erro ao iniciar conversa (skip welcome):', error, true);
-                        if (typeof config.onError === 'function') config.onError(error);
-                        setTimeout(() => textarea.focus(), 100);
-                    });
-            } else if (!isFirstTime) {
-                if (!chatInterface.classList.contains('active')) {
-                    chatContainer.querySelector('.new-conversation').style.display = 'none';
-                    chatInterface.classList.add('active');
-                }
-                setTimeout(() => textarea.focus(), 100);
-            } else {
-                chatContainer.querySelector('.new-conversation').style.display = 'block';
-                chatInterface.classList.remove('active');
-                if (messages.length === 0) {
-                    chatMessages.innerHTML = '';
-                }
-            }
+            const newConv = chatContainer.querySelector('.new-conversation');
+if (config.skipWelcomeScreen) {
+    // Always skip the welcome screen if enabled
+    if (newConv) newConv.style.display = 'none';
+    chatInterface.classList.add('active');
+    startNewConversation()
+        .then(() => setTimeout(() => textarea.focus(), 100))
+        .catch((error) => {
+            console.error("[DEBUG] startNewConversation().catch block triggered. Error object:", error);
+            debug('Erro ao iniciar conversa (skip welcome):', error, true);
+            if (typeof config.onError === 'function') config.onError(error);
+            setTimeout(() => textarea.focus(), 100);
+        });
+} else if (!isFirstTime) {
+    if (!chatInterface.classList.contains('active')) {
+        if (newConv) newConv.style.display = 'none';
+        chatInterface.classList.add('active');
+    }
+    setTimeout(() => textarea.focus(), 100);
+} else {
+    if (newConv) newConv.style.display = 'block';
+    chatInterface.classList.remove('active');
+    if (messages.length === 0) {
+        chatMessages.innerHTML = '';
+    }
+}
         } else {
             chatContainer.classList.remove('visible');
             // Wait for animation to finish before hiding and showing launcher
