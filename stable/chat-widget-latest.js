@@ -1,6 +1,6 @@
 // v0.6.24: fix: absolute path for phone-countries.json
 (function() {
-    const countriesFilePath = 'https://github.com/felipematos/n8n-advanced-chatclient/stable/phone-countries.json'; // Absolute path for stable
+    const countriesFilePath = 'https://felipematos.github.io/n8n-advanced-chatclient/stable/phone-countries.json'; // Absolute path for stable
 
     // --- Essential Variable Declarations ---
     let config = {};
