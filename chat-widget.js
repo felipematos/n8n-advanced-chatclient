@@ -1053,10 +1053,13 @@
             hideProactivePrompt(); // Hide prompt when opening chat
 
             // Determine if we need to show welcome screen or start a conversation
-            const newConv = chatContainer.querySelector('.new-conversation');
+            let newConv = chatContainer.querySelector('.new-conversation');
 if (config.skipWelcomeScreen) {
-    // Always skip the welcome screen if enabled
-    if (newConv) newConv.style.display = 'none';
+    // Remove welcome screen from DOM if present
+    if (newConv) {
+        newConv.parentNode.removeChild(newConv);
+        newConv = null;
+    }
     chatInterface.classList.add('active');
     startNewConversation()
         .then(() => setTimeout(() => textarea.focus(), 100))
