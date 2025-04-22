@@ -1655,7 +1655,7 @@ if (config.skipWelcomeScreen) {
     }
 
     // N8N Chat Widget
-// v0.6.19
+// v0.6.20
     // Chat Widget Script Version 0.6.14 // v0.6.14: Simplified & fixed quick‑action parsing
 function processQuickActions(text) {
     if (!text) return { text: '', hasQuickActions: false };
@@ -2313,6 +2313,7 @@ function processQuickActions(text) {
             
             let countrySelect = null;
             let inEl = null; // Declare input element variable here
+            console.debug('[DEBUG] Rendering input/secret object:', obj);
 
             if (obj.validation === 'phone') {
                 inEl = document.createElement('input'); 
@@ -2408,6 +2409,9 @@ function processQuickActions(text) {
             textarea.disabled = true;
             sendButton.disabled = true;
             setTimeout(() => inEl.focus(), 50); // Focus after a short delay
+            // Append input/secret to message element so it is visible
+            container.appendChild(wrapper);
+            messageElement.appendChild(container);
             // Live validation
             inEl.addEventListener('input', () => {
                 let v = inEl.value;
