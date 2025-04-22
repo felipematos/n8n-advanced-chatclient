@@ -1,4 +1,4 @@
-// v0.6.20
+// v0.6.21: fix: path lang detection
 (function() {
     // v0.6.5: define phoneCountryList to avoid ReferenceErrors
     const countriesFilePath = 'phone-countries.json'; // Path relative to chat-widget.js
@@ -1066,7 +1066,7 @@ if (config.skipWelcomeScreen) {
     startNewConversation()
         .then(() => setTimeout(() => textarea.focus(), 100))
         .catch((error) => {
-            console.error("[DEBUG] startNewConversation().catch block triggered. Error object:", error);
+            console.error("[DEBUG] startNewConversation().catch block triggered. Error object:", error); // Added log
             debug('Erro ao iniciar conversa (skip welcome):', error, true);
             if (typeof config.onError === 'function') config.onError(error);
             setTimeout(() => textarea.focus(), 100);
@@ -1251,10 +1251,12 @@ if (config.skipWelcomeScreen) {
             detectLocation: typeof window.ChatWidgetConfig.detectLocation === 'boolean' ? window.ChatWidgetConfig.detectLocation : defaultConfig.detectLocation // Merge detectLocation
         } : defaultConfig;
 
-    // Calculate effective language AFTER merging config
-    const finalUserLangSource = config.metadata?.language || navigator.language || 'en';
+    // Calculate effective language AFTER merging config, detect from URL path
+    const pathLangMatch = window.location.pathname.match(/\/([a-z]{2}(?:[-_][a-z]{2})?)(?:\/|$)/i);
+    const urlLang = pathLangMatch ? pathLangMatch[1].toLowerCase() : null;
+    const finalUserLangSource = config.metadata?.language || urlLang || navigator.language || 'en';
     const finalLangMatch = finalUserLangSource.match(/^([a-z]{2})(?:[-_]([a-z]{2}))?/i);
-    // Use the full match (e.g., 'pt-br') if available, otherwise just the base ('pt'), default to 'en'
+    // Use the full match (e.g., 'pt_br') if available, otherwise just the base ('pt'), default to 'en'
     const detectedLang = finalLangMatch ? (finalLangMatch[2] ? finalLangMatch[0].toLowerCase() : finalLangMatch[1].toLowerCase()) : 'en'; 
     const baseLang = finalLangMatch ? finalLangMatch[1].toLowerCase() : 'en'; // Always the 2-letter code ('pt', 'en')
 
@@ -2670,9 +2672,7 @@ function processQuickActions(text) {
                 // Let startNewConversation handle the indicator and final message.
 
                 startNewConversation()
-                    .then(() => {
-                        setTimeout(() => textarea.focus(), 100);
-                    })
+                    .then(() => setTimeout(() => textarea.focus(), 100))
                     .catch((error) => {
                         console.error("[DEBUG] startNewConversation().catch block triggered. Error object:", error); // Added log
                         console.error("[DEBUG] Error message:", error?.message); // Added log

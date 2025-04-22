@@ -1,7 +1,25 @@
-// Chat Widget Script Version 0.6.20
-// Loads stable/chat-widget-stable.js
+// v0.6.21: fix: path lang detection
 (function() {
-    // Limpar qualquer instância anterior do widget
+    // v0.6.5: define phoneCountryList to avoid ReferenceErrors
+    const countriesFilePath = 'phone-countries.json'; // Path relative to chat-widget.js
+
+    // --- Essential Variable Declarations ---
+    let config = {};
+    let widgetContainer, launcherButton, chatContainer, closeButton, chatInterface, messagesContainer, textarea, sendButton, typingIndicator, fontSizeToggle, chatHeader, chatMessages, proactivePromptElement, newChatBtn, phoneInputField, phoneCountrySelect, quickActionButtonContainer, mainInputArea;
+    let currentSessionId = null;
+    let messages = [];
+    let isChatOpen = false;
+    let isSending = false;
+    let isFirstTime = !localStorage.getItem('n8nChatVisited');
+    const fontSizes = ['small', 'medium', 'large'];
+    let currentFontSizeIndex = 1; // Default to medium
+    let proactivePromptTimeout;
+    let phoneCountryList = []; // Initialize country list
+    let userLocation = null; // Store detected user location
+    let currentQuickAction = null; // Track active quick action
+    let debugMode = false; // Central debug flag
+
+    // Function to clear previous widget instances and styles
     function cleanupExistingWidget() {
         // Remover elementos existentes do widget
         const existingWidget = document.querySelector('.n8n-chat-widget');
@@ -103,13 +121,15 @@
         }
 
         .n8n-chat-widget .brand-header {
-            padding: 16px;
+            padding: 12px 16px 10px 16px;
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 10px;
             border-bottom: 1px solid rgba(8, 10, 86, 0.1);
             position: relative;
-            flex-shrink: 0; /* Ensure header doesn't shrink */
+            flex-shrink: 0;
+            background: var(--chat--color-background);
+            z-index: 12;
         }
 
         .n8n-chat-widget .brand-header img {
@@ -128,18 +148,25 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            padding: 20px;
+            padding: 32px 24px 28px 24px;
             text-align: center;
-            width: 100%;
-            max-width: 300px;
+            width: 90%;
+            max-width: 340px;
+            background: var(--chat--color-background);
+            border-radius: 12px;
+            box-shadow: 0 4px 24px rgba(8, 10, 86, 0.10);
+            z-index: 10;
         }
 
         .n8n-chat-widget .welcome-text {
-            font-size: 24px;
+            font-size: 22px;
             font-weight: 600;
             color: var(--chat--color-font);
-            margin-bottom: 24px;
+            margin-bottom: 18px;
             line-height: 1.3;
+            word-break: break-word;
+            white-space: normal;
+            text-align: center;
         }
 
         .n8n-chat-widget .new-chat-btn {
@@ -228,7 +255,7 @@
         }
 
         .n8n-chat-widget .chat-input {
-            padding: 8px;
+            padding: 10px 12px 10px 12px;
             margin-bottom: 0;
             border-bottom-left-radius: 12px;
             border-bottom-right-radius: 12px;
@@ -236,7 +263,9 @@
             border-top: 1px solid rgba(8, 10, 86, 0.1);
             display: flex;
             gap: 8px;
-            flex-shrink: 0; /* Prevent input area from shrinking */
+            flex-shrink: 0;
+            width: 100%;
+            box-sizing: border-box;
         }
 
         .n8n-chat-widget .chat-input textarea {
@@ -261,8 +290,11 @@
             color: white;
             border: none;
             border-radius: 8px;
-            padding: 0 20px;
+            padding: 0 12px;
             cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
             transition: transform 0.2s;
             font-family: inherit;
             font-weight: 500;
@@ -272,7 +304,7 @@
             transform: scale(1.05);
         }
 
-        body .n8n-chat-widget .chat-toggle {
+        .n8n-chat-widget .chat-toggle {
             position: fixed;
             bottom: 20px;
             right: 20px;
@@ -534,15 +566,9 @@
             padding-right: 12px;
         }
 
-        .n8n-chat-widget .quick-action-button.external::after {
-            content: "↗";
-            font-size: 12px;
-            opacity: 0.7;
-        }
-
         .n8n-chat-widget .quick-action-select {
             background: linear-gradient(135deg, var(--chat--color-primary-light, #f0f2ff) 0%, var(--chat--color-secondary-light, #f5f0ff) 100%);
-            color: var(--chat--color-primary, #080A56);
+            color: var(--chat--color-primary, #080A56); /* Texto escuro */
             border: 1px solid rgba(8, 10, 86, 0.1);
             border-radius: 8px;
             padding: 8px 12px;
@@ -647,7 +673,7 @@
             right: 8px;
             background: none;
             border: none;
-            color: white;
+            color: var(--chat--color-secondary); /* Cor ajustada */
             opacity: 0.7;
             cursor: pointer;
             font-size: 18px;
@@ -677,6 +703,180 @@
         .n8n-chat-widget.font-size-xl .chat-input textarea {
             font-size: 20px;
         }
+
+        .n8n-chat-widget .quick-action-button.disabled,
+        .n8n-chat-widget .quick-action-link.disabled,
+        .n8n-chat-widget .quick-action-select.disabled,
+        .n8n-chat-widget .phone-code-select {
+            opacity: 0.5;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+        .n8n-chat-widget .quick-action-input-send.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+
+        /* Add invalid/valid styles */
+        .n8n-chat-widget .quick-action-container input.invalid {
+            border-color: red;
+            color: red;
+            animation: blink-invalid 0.5s ease 0s 2;
+        }
+        .n8n-chat-widget .valid-check {
+            color: green;
+            margin-left: 4px;
+        }
+        @keyframes blink-invalid {
+            0%,100% { opacity: 1; }
+            50% { opacity: 0; }
+        }
+        
+        .n8n-chat-widget .quick-action-link.disabled,
+        .n8n-chat-widget .quick-action-select.disabled,
+        .n8n-chat-widget .phone-code-select.disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            pointer-events: none;
+        }
+        .n8n-chat-widget .phone-code-select {
+            width: 60px;
+            margin-right: 4px;
+        }
+        
+        .n8n-chat-widget .quick-action-input-send {
+            height: 100%;
+            padding: 0 8px;
+            background: none;
+            border: none;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            visibility: visible; /* Ensure visibility */
+            height: 40px; /* Set explicit height */
+        }
+
+        .n8n-chat-widget .phone-code-select {
+            pointer-events: auto; /* Ensure pointer-events is auto */
+        }
+        
+        /* Quick-action send button styling - ensure visible and aligned */
+        .n8n-chat-widget .quick-action-input-send {
+            background: linear-gradient(135deg, var(--chat--color-primary) 0%, var(--chat--color-secondary) 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 0 12px;
+            height: 40px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.2s;
+        }
+        .n8n-chat-widget .quick-action-input-send:hover {
+            transform: scale(1.05);
+        }
+        
+        /* External-icon styling */
+        .n8n-chat-widget .quick-action-button.external svg {
+            width: 14px;
+            height: 14px;
+            margin-left: 6px;
+            vertical-align: middle;
+            opacity: 0.7;
+        }
+        
+        /* Consistent input/secret styling */
+        .n8n-chat-widget .quick-action-container input,
+        .n8n-chat-widget .quick-action-container select {
+            padding: 12px;
+            border: 1px solid rgba(8, 10, 86, 0.2);
+            border-radius: 8px;
+            background: var(--chat--color-background);
+            color: var(--chat--color-font);
+            font-size: 14px;
+            height: 40px;
+            flex: 1 1 0%;
+            box-sizing: border-box;
+        }
+        .n8n-chat-widget .quick-action-container {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            width: 100%;
+            position: relative;
+        }
+        .n8n-chat-widget .quick-action-container .valid-check {
+            position: absolute;
+            right: 44px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: green;
+            font-size: 18px;
+            z-index: 2;
+            pointer-events: none;
+            background: transparent;
+            display: none;
+        }
+        .n8n-chat-widget .quick-action-input-send {
+            background: linear-gradient(135deg, var(--chat--color-primary) 0%, var(--chat--color-secondary) 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            padding: 0 12px;
+            height: 40px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.2s;
+            margin-left: 4px;
+        }
+        .n8n-chat-widget .quick-action-input-send svg {
+            fill: none;
+            stroke: white;
+            stroke-width: 2;
+        }
+        .n8n-chat-widget .phone-code-select {
+            opacity: 1;
+            border: 1px solid rgba(8,10,86,0.2);
+            background: var(--chat--color-background);
+            color: var(--chat--color-font);
+            font-size: 14px;
+            height: 40px;
+            border-radius: 8px;
+            margin-right: 4px;
+            padding: 0 8px;
+            cursor: pointer;
+            pointer-events: auto;
+        }
+        
+        /* Phone-select width and clickable */
+        .n8n-chat-widget .phone-code-select {
+            width: 60px;
+            margin-right: 4px;
+            padding: 0 8px;
+            cursor: pointer;
+            pointer-events: auto;
+        }
+        
+        .n8n-chat-widget .chat-input-area.disabled {
+            /* Optional: Style the container itself when disabled */
+            /* background-color: #e9e9e9; */
+        }
+        .n8n-chat-widget .chat-input-area textarea.disabled {
+            background-color: #f0f0f0; /* Lighter background for disabled textarea */
+            cursor: not-allowed;
+            opacity: 0.7;
+        }
+        .n8n-chat-widget .chat-input-area button.disabled {
+            background-color: #ccc; /* Grey background for disabled button */
+            cursor: not-allowed;
+            opacity: 0.6;
+        }
+
     `;
 
     // Load Geist font
@@ -690,6 +890,298 @@
     styleSheet.id = 'n8n-chat-widget-styles';
     styleSheet.textContent = styles;
     document.head.appendChild(styleSheet);
+
+    // --- Proactive Prompt Logic --- 
+
+    // TODO: Define or ensure getProactiveMessage() is available
+    function getProactiveMessage() {
+        // Basic implementation, enhance later if needed
+        // Assumes config is available in this scope
+        return config?.proactivePrompt?.message || "Need help? Chat with us!";
+    }
+
+    function createProactivePrompt() {
+        // Assumes config, proactivePromptElement, widgetContainer, toggleChat, hideProactivePrompt, debug are available
+        if (!config?.proactivePrompt?.enabled || proactivePromptElement || !widgetContainer) return;
+        debug("Creating proactive prompt");
+
+        const promptMessage = getProactiveMessage();
+        proactivePromptElement = document.createElement('div');
+        proactivePromptElement.classList.add('proactive-prompt');
+        if (config.style?.position === 'left') {
+            proactivePromptElement.classList.add('position-left');
+        }
+
+        proactivePromptElement.innerHTML = `
+            <div class="prompt-content">${promptMessage}</div>
+            <button class="close-prompt" title="Close" style="color: ${config.style?.secondaryColor || '#0b0f7b'}">×</button>
+        `;
+
+        proactivePromptElement.querySelector('.prompt-content').addEventListener('click', () => {
+            debug("Proactive prompt clicked");
+            toggleChat(true); // Open the chat
+            hideProactivePrompt(); // Hide prompt after clicking
+        });
+
+        proactivePromptElement.querySelector('.close-prompt').addEventListener('click', (e) => {
+            e.stopPropagation(); // Prevent chat from opening
+            debug("Proactive prompt close button clicked");
+            hideProactivePrompt();
+        });
+
+        widgetContainer.appendChild(proactivePromptElement);
+        setTimeout(() => proactivePromptElement.classList.add('show'), 50); 
+    }
+
+    function hideProactivePrompt() {
+        // Assumes proactivePromptElement, proactivePromptTimeout, debug are available
+        if (proactivePromptElement) {
+            debug("Hiding proactive prompt");
+            proactivePromptElement.classList.remove('show');
+            setTimeout(() => {
+                proactivePromptElement?.remove(); // Add null check
+                proactivePromptElement = null;
+            }, 300); // Match animation duration
+        }
+        if (proactivePromptTimeout) {
+            clearTimeout(proactivePromptTimeout);
+            proactivePromptTimeout = null;
+        }
+    }
+
+    function scheduleProactivePrompt() {
+        // Assumes config, proactivePromptTimeout, isChatOpen, createProactivePrompt, debug are available
+        if (proactivePromptTimeout) {
+            clearTimeout(proactivePromptTimeout);
+        }
+        // Use optional chaining for safer access
+        const delay = config?.proactivePrompt?.delay ?? 5000;
+        debug(`Scheduling proactive prompt with delay: ${delay}ms`);
+        proactivePromptTimeout = setTimeout(() => {
+            if (!isChatOpen) {
+                createProactivePrompt();
+            }
+        }, delay);
+    }
+
+    // --- Proactive Prompt Logic --- 
+
+    // TODO: Define or ensure getProactiveMessage() is available
+    function getProactiveMessage() {
+        // Basic implementation, enhance later if needed
+        // Assumes config is available in this scope
+        return config?.proactivePrompt?.message || "Need help? Chat with us!";
+    }
+
+    function createProactivePrompt() {
+        // Assumes config, proactivePromptElement, widgetContainer, toggleChat, hideProactivePrompt, debug are available
+        if (!config?.proactivePrompt?.enabled || proactivePromptElement || !widgetContainer) return;
+        debug("Creating proactive prompt");
+
+        const promptMessage = getProactiveMessage();
+        proactivePromptElement = document.createElement('div');
+        proactivePromptElement.classList.add('proactive-prompt');
+        if (config.style?.position === 'left') {
+            proactivePromptElement.classList.add('position-left');
+        }
+
+        proactivePromptElement.innerHTML = `
+            <div class="prompt-content">${promptMessage}</div>
+            <button class="close-prompt" title="Close" style="color: ${config.style?.secondaryColor || '#0b0f7b'}">×</button>
+        `;
+
+        proactivePromptElement.querySelector('.prompt-content').addEventListener('click', () => {
+            debug("Proactive prompt clicked");
+            toggleChat(true); // Open the chat
+            hideProactivePrompt(); // Hide prompt after clicking
+        });
+
+        proactivePromptElement.querySelector('.close-prompt').addEventListener('click', (e) => {
+            e.stopPropagation(); // Prevent chat from opening
+            debug("Proactive prompt close button clicked");
+            hideProactivePrompt();
+        });
+
+        widgetContainer.appendChild(proactivePromptElement);
+        setTimeout(() => proactivePromptElement.classList.add('show'), 50); 
+    }
+
+    function hideProactivePrompt() {
+        // Assumes proactivePromptElement, proactivePromptTimeout, debug are available
+        if (proactivePromptElement) {
+            debug("Hiding proactive prompt");
+            proactivePromptElement.classList.remove('show');
+            setTimeout(() => {
+                proactivePromptElement?.remove(); // Add null check
+                proactivePromptElement = null;
+            }, 300); // Match animation duration
+        }
+        if (proactivePromptTimeout) {
+            clearTimeout(proactivePromptTimeout);
+            proactivePromptTimeout = null;
+        }
+    }
+
+    function scheduleProactivePrompt() {
+        // Assumes config, proactivePromptTimeout, isChatOpen, createProactivePrompt, debug are available
+        if (proactivePromptTimeout) {
+            clearTimeout(proactivePromptTimeout);
+        }
+        // Use optional chaining for safer access
+        const delay = config?.proactivePrompt?.delay ?? 5000;
+        debug(`Scheduling proactive prompt with delay: ${delay}ms`);
+        proactivePromptTimeout = setTimeout(() => {
+            if (!isChatOpen) {
+                createProactivePrompt();
+            }
+        }, delay);
+    }
+
+    // --- RESTORED: Toggle Chat Function --- 
+    async function toggleChat(forceOpen = null) {
+        isChatOpen = (forceOpen !== null) ? forceOpen : !isChatOpen;
+        debug(`Toggling chat. New state: ${isChatOpen ? 'Open' : 'Closed'}`);
+
+        if (isChatOpen) {
+            chatContainer.style.display = 'flex'; // Use flex for centering/layout
+            launcherButton.style.display = 'none';
+            // Delay showing the chat content slightly for smoother animation
+            setTimeout(() => {
+                chatContainer.classList.add('visible');
+            }, 10); // Small delay
+
+            hideProactivePrompt(); // Hide prompt when opening chat
+
+            // Determine if we need to show welcome screen or start a conversation
+            let newConv = chatContainer.querySelector('.new-conversation');
+if (config.skipWelcomeScreen) {
+    debug('[PATCH] skipWelcomeScreen is true: forcibly removing welcome screen and starting chat');
+    if (newConv) {
+        newConv.parentNode.removeChild(newConv);
+        newConv = null;
+    }
+    chatInterface.classList.add('active');
+    // Always clear welcome screen remnants
+    if (typeof chatMessages !== 'undefined') chatMessages.innerHTML = '';
+    startNewConversation()
+        .then(() => setTimeout(() => textarea.focus(), 100))
+        .catch((error) => {
+            console.error("[DEBUG] startNewConversation().catch block triggered. Error object:", error); // Added log
+            debug('Erro ao iniciar conversa (skip welcome):', error, true);
+            if (typeof config.onError === 'function') config.onError(error);
+            setTimeout(() => textarea.focus(), 100);
+        });
+} else if (!isFirstTime) {
+    if (!chatInterface.classList.contains('active')) {
+        if (newConv) newConv.style.display = 'none';
+        chatInterface.classList.add('active');
+    }
+    setTimeout(() => textarea.focus(), 100);
+} else {
+    if (newConv) newConv.style.display = 'block';
+    chatInterface.classList.remove('active');
+    if (messages.length === 0) {
+        chatMessages.innerHTML = '';
+    }
+}
+        } else {
+            chatContainer.classList.remove('visible');
+            // Wait for animation to finish before hiding and showing launcher
+            setTimeout(() => {
+                chatContainer.style.display = 'none';
+                launcherButton.style.display = 'flex'; // Use flex for centering icon
+                launcherButton.classList.add('visible'); // Ensure launcher is visible
+                scheduleProactivePrompt(); // Schedule prompt when closing chat
+            }, 300); // Match CSS transition duration
+        }
+        // Mark as visited after first interaction (open/close)
+        if (isFirstTime) {
+            localStorage.setItem('n8nChatVisited', 'true');
+            isFirstTime = false; 
+        }
+    }
+
+    // Load country list from JSON
+    async function loadPhoneCountryList() {
+        try {
+            const response = await fetch(countriesFilePath);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            phoneCountryList = await response.json();
+            debug('Successfully loaded phone country list from', countriesFilePath);
+        } catch (error) {
+            console.error('Error loading phone country list:', error);
+            // Use a minimal fallback list or handle the error appropriately
+            phoneCountryList = [
+                { iso: 'US', dialCode: '1' },
+                { iso: 'GB', dialCode: '44' },
+                { iso: 'BR', dialCode: '55' },
+            ];
+            debug('Failed to load phone country list, using fallback.', phoneCountryList, true);
+        }
+    }
+
+    // Initial load of countries, placed correctly within IIFE scope
+    loadPhoneCountryList().then(() => {
+        debug("Country list loaded, ready for init.");
+        // The list is now loaded and ready for when initN8nChatWidget is called.
+    }).catch(error => {
+        console.error("[CRITICAL] Failed to load phone country list:", error);
+        // Widget might still function but phone input pre-selection will fail.
+    });
+
+    // --- RESTORED: Minimal Initialization Function --- 
+    function initN8nChatWidget(userConfig) {
+        // TODO: Restore config merge, translations, theme application
+        // config = deepMerge(defaultConfig, userConfig);
+        // loadTranslations(config.language);
+        // applyTheme(config.style);
+
+        // TODO: Call createWidgetStructure() here - Assuming it's defined/restored
+        // createWidgetStructure(); 
+
+        // Find CORE elements needed for basic operation
+        widgetContainer = document.getElementById('n8n-chat-widget-container'); // Assume ID
+        if (!widgetContainer) {
+             console.error("CRITICAL: Widget container (#n8n-chat-widget-container) not found.");
+             return;
+        }
+        chatContainer = widgetContainer.querySelector('.chat-container');
+        chatInterface = widgetContainer.querySelector('.chat-interface');
+        messagesContainer = widgetContainer.querySelector('.messages-container');
+        textarea = widgetContainer.querySelector('textarea');
+        newChatBtn = widgetContainer.querySelector('.new-chat-btn'); 
+
+        // Find launcher button (assuming it's created elsewhere or by createWidgetStructure)
+        launcherButton = document.getElementById('n8n-chat-launcher');
+        if (!launcherButton) {
+             // Maybe try creating it as fallback? Or assume createWidgetStructure handles it.
+             console.warn("Launcher button (#n8n-chat-launcher) not found initially.");
+        }
+        // Find close button
+        closeButton = widgetContainer.querySelector('.header-button.close-button'); // Assuming class
+        if (!closeButton) {
+             console.warn("Close button (.header-button.close-button) not found initially.");
+        }
+
+        // --- Attach MINIMAL Event Listeners --- 
+        if (launcherButton) {
+            launcherButton.addEventListener('click', () => toggleChat());
+        } else {
+             debug("Launcher button not found, cannot attach listener.");
+        }
+        if (closeButton) {
+            closeButton.addEventListener('click', () => toggleChat(false));
+        } else {
+             debug("Close button not found, cannot attach listener.");
+        }
+
+        // TODO: Restore other listeners (newChatBtn, send, textarea, etc.)
+        // TODO: Restore initial setup (startOpen, proactive prompt, font size etc.)
+
+        debug("Minimal initN8nChatWidget completed.");
+    }
 
     // Define default messages *before* defaultConfig uses them
     const defaultProactiveMessages = {
@@ -744,15 +1236,8 @@
         languageTexts: {} // Initialize as empty, will be populated below
     };
 
-    // Definir 'lang' mais cedo para estar disponível e detectar variações
-    const url = window.location.href;
-    // Regex para encontrar /<lang>-<region>/ ou /<lang>/ (ex: /pt-br/, /en-US/, /pt/)
-    const langMatch = url.match(/\/([a-z]{2})(?:[-_]([a-z]{2}))?\/?(?:\?|#|$)/i);
-    const detectedLang = langMatch ? langMatch[0].replace(/[/\\\?#]/g, '').toLowerCase() : 'en'; // ex: "pt-br", "en", "es"
-    const baseLang = langMatch ? langMatch[1].toLowerCase() : 'en'; // ex: "pt", "en", "es"
-
     // Merge user config with defaults
-    const config = window.ChatWidgetConfig ?
+    config = window.ChatWidgetConfig ?
         {
             webhook: { ...defaultConfig.webhook, ...window.ChatWidgetConfig.webhook },
             branding: { ...defaultConfig.branding, ...window.ChatWidgetConfig.branding },
@@ -765,6 +1250,15 @@
             metadata: { ...defaultConfig.metadata, ...(window.ChatWidgetConfig.metadata || {}) }, // Merge metadata
             detectLocation: typeof window.ChatWidgetConfig.detectLocation === 'boolean' ? window.ChatWidgetConfig.detectLocation : defaultConfig.detectLocation // Merge detectLocation
         } : defaultConfig;
+
+    // Calculate effective language AFTER merging config, detect from URL path
+    const pathLangMatch = window.location.pathname.match(/\/([a-z]{2}(?:[-_][a-z]{2})?)(?:\/|$)/i);
+    const urlLang = pathLangMatch ? pathLangMatch[1].toLowerCase() : null;
+    const finalUserLangSource = config.metadata?.language || urlLang || navigator.language || 'en';
+    const finalLangMatch = finalUserLangSource.match(/^([a-z]{2})(?:[-_]([a-z]{2}))?/i);
+    // Use the full match (e.g., 'pt_br') if available, otherwise just the base ('pt'), default to 'en'
+    const detectedLang = finalLangMatch ? (finalLangMatch[2] ? finalLangMatch[0].toLowerCase() : finalLangMatch[1].toLowerCase()) : 'en'; 
+    const baseLang = finalLangMatch ? finalLangMatch[1].toLowerCase() : 'en'; // Always the 2-letter code ('pt', 'en')
 
     // Mensagens traduzidas padrão (usadas como último fallback dentro de getText)
     const defaultLanguageTexts = {
@@ -843,10 +1337,8 @@
     if (window.N8NChatWidgetInitialized) return;
     window.N8NChatWidgetInitialized = true;
 
-    let currentSessionId = '';
-
     // Create widget container
-    const widgetContainer = document.createElement('div');
+    widgetContainer = document.createElement('div');
     widgetContainer.className = 'n8n-chat-widget';
     
     // Set CSS variables for colors
@@ -855,7 +1347,7 @@
     widgetContainer.style.setProperty('--n8n-chat-background-color', config.style.backgroundColor);
     widgetContainer.style.setProperty('--n8n-chat-font-color', config.style.fontColor);
 
-    const chatContainer = document.createElement('div');
+    chatContainer = document.createElement('div');
     chatContainer.className = `chat-container${config.style.position === 'left' ? ' position-left' : ''}`;
     
     // Function to get the correct language string from a potentially multi-language object
@@ -871,6 +1363,7 @@
             return getText(fallbackKey, '');
         }
     }
+    
     
     // Criar conteúdo do chat container diretamente
     let chatContainerHTML = `
@@ -930,19 +1423,17 @@
     toggleButton.className = `chat-toggle${config.style.position === 'left' ? ' position-left' : ''}`;
     toggleButton.innerHTML = `
         <!-- Standard chat baloon icon - Size controlled by CSS -->
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-            <path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/>
-        </svg>`;
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>`;
     
     widgetContainer.appendChild(chatContainer);
     widgetContainer.appendChild(toggleButton);
     document.body.appendChild(widgetContainer);
 
-    const newChatBtn = chatContainer.querySelector('.new-chat-btn');
-    const chatInterface = chatContainer.querySelector('.chat-interface');
-    const messagesContainer = chatContainer.querySelector('.chat-messages');
-    const textarea = chatContainer.querySelector('textarea');
-    const sendButton = chatContainer.querySelector('.chat-input button');
+    newChatBtn = chatContainer.querySelector('.new-chat-btn');
+    chatInterface = chatContainer.querySelector('.chat-interface');
+    messagesContainer = chatContainer.querySelector('.chat-messages');
+    textarea = chatContainer.querySelector('textarea');
+    sendButton = chatContainer.querySelector('.chat-input button');
 
     function generateUUID() {
         // Verificar se o método nativo está disponível
@@ -999,11 +1490,12 @@
             // Se não for JSON válido, retornar um objeto padrão
             debug('Resposta não é JSON válido:', text, true);
             return { output: "Olá! Como posso ajudar?" };
-        } catch (e) {
-            debug('Erro ao analisar JSON:', e, true);
+        } catch (error) {
+            debug('Erro ao processar JSON da resposta:', error, true);
             return { output: "Olá! Como posso ajudar?" };
         }
     }
+
 
     // Função para mostrar o indicador de digitação
     function showTypingIndicator() {
@@ -1048,7 +1540,7 @@
         return false;
     }
 
-    // Função melhorada para detectar se o conteúdo parece ser uma URL de imagem GIF ou um link de serviço de GIF
+    // Função para detectar se o conteúdo parece ser uma URL de imagem GIF ou um link de serviço de GIF
     function isGifURL(text) {
         if (!text) return false;
         
@@ -1099,6 +1591,9 @@
         
         // Verificar se é uma URL de imagem conhecida
         if (/\.(gif|jpe?g|png|webp|svg)(\?[^"'\s<>]*)?$/i.test(cleanUrl)) {
+            const url = cleanUrl;
+            
+            // Usar template string sem quebras de linha para evitar problemas
             return {
                 url: cleanUrl,
                 isImage: true,
@@ -1136,259 +1631,116 @@
         };
     }
 
-    // Função para extrair URLs de GIF ou imagem de um texto
-    function extractGifURL(text) {
-        if (!text) return null;
+    // Função para extrair URLs de imagem
+    function extractImageUrls(text) {
+        if (!text) return [];
         
-        // Encontrar todas as URLs no texto
-        const urlRegex = /https?:\/\/\S+/gi;
+        const urls = [];
+        const imageRegex = /https?:\/\/[^\s<>"']+\.(gif|jpe?g|png|webp|svg)(\?[^"'\s<>]*)?/gi;
         let match;
-        let validImages = [];
         
-        while ((match = urlRegex.exec(text)) !== null) {
-            const url = match[0];
-            const urlPosition = match.index;
-            
-            // Verificar se a URL está dentro de um bloco de código ou atributo HTML
-            if (isWithinCodeBlock(text, urlPosition) || 
-                isWithinHTMLAttribute(text, urlPosition)) {
-                continue;
-            }
-            
-            // Processar a URL para determinar se é uma imagem
-            const processedUrl = processImageURL(url);
-            
-            if (processedUrl.isImage) {
-                validImages.push({ 
-                    url: processedUrl.url, 
-                    position: urlPosition,
-                    type: processedUrl.type || 'img'
-                });
-            }
+        while ((match = imageRegex.exec(text)) !== null) {
+            urls.push(match[0]);
         }
         
-        // Retornar a primeira URL válida encontrada
-        return validImages.length > 0 ? validImages[0].url : null;
+        return urls;
     }
 
-    // Verificar se a URL está dentro de um atributo HTML como src ou href
-    function isWithinHTMLAttribute(text, position) {
-        // Procurar por padrões de atributos HTML antes da posição
-        const beforeText = text.substring(0, position);
-        const afterText = text.substring(position);
-        
-        // Verificar padrões como src="... ou href="...
-        if (/\b(src|href)\s*=\s*["']?[^"']*$/i.test(beforeText)) {
+    // Função para verificar se uma string é uma URL válida
+    function isValidUrl(string) {
+        try {
+            new URL(string);
             return true;
+        } catch (_) {
+            return false;
         }
-        
-        // Verificar se estamos dentro de uma tag HTML
-        const openTagBefore = beforeText.lastIndexOf('<');
-        const closeTagBefore = beforeText.lastIndexOf('>');
-        const openTagAfter = afterText.indexOf('<');
-        const closeTagAfter = afterText.indexOf('>');
-        
-        // Se há uma tag aberta antes e fechada depois, estamos dentro de uma tag
-        if (openTagBefore > closeTagBefore && closeTagAfter >= 0 && 
-            (openTagAfter < 0 || closeTagAfter < openTagAfter)) {
-            return true;
-        }
-        
-        return false;
     }
 
-    // Função para renderizar conteúdo especial como GIFs e imagens
-    function renderSpecialContent(text) {
-        if (!text) return '';
-        
-        // Primeiro passo: verificar se o texto completo é uma URL de imagem
-        if (/^https?:\/\/[^\s]+\.(gif|jpe?g|png|webp|svg)(\?[^"'\s<>]*)?$/i.test(text.trim())) {
-            const url = text.trim();
-            
-            // Usar template string sem quebras de linha para evitar problemas
-            return `<div class="image-container"><img src="${url}" alt="Imagem" onerror="this.style.display='none'; this.parentNode.innerHTML='<div class=\\'image-placeholder\\'>Imagem não disponível</div>'"></div>`;
-        }
-        
-        // Segundo passo: processar markdown e encontrar imagens
-        const lines = text.split('\n');
-        const processedLines = [];
-        
-        for (const line of lines) {
-            // Verificar se a linha é uma imagem markdown
-            const imageMarkdown = line.match(/^!\[(.*?)\]\((https?:\/\/[^)]+)\)$/);
-            if (imageMarkdown) {
-                const [_, alt, url] = imageMarkdown;
-                // Usar template string sem quebras de linha
-                processedLines.push(`<div class="image-container"><img src="${url}" alt="${alt || 'Imagem'}" onerror="this.style.display='none'; this.parentNode.innerHTML='<div class=\\'image-placeholder\\'>Imagem não disponível</div>'"></div>`);
-                continue;
-            }
-            
-            // Verificar se a linha é uma URL de imagem
-            const imageUrl = line.match(/^(https?:\/\/[^\s]+\.(gif|jpe?g|png|webp|svg)(\?[^"'\s<>]*)?)$/i);
-            if (imageUrl) {
-                const url = imageUrl[1];
-                // Usar template string sem quebras de linha
-                processedLines.push(`<div class="image-container"><img src="${url}" alt="Imagem" onerror="this.style.display='none'; this.parentNode.innerHTML='<div class=\\'image-placeholder\\'>Imagem não disponível</div>'"></div>`);
-                continue;
-            }
-            
-            // Para outras linhas, apenas adicionar
-            processedLines.push(line);
-        }
-        
-        // Juntar as linhas processadas
-        const processedText = processedLines.join('\n');
-        
-        // Processar o resto do markdown
-        let processedHtml = renderMarkdown(processedText);
-        
-        // Procurar por URLs de imagem soltas no texto final
-        processedHtml = processedHtml.replace(/(https?:\/\/[^\s<>"']+\.(gif|jpe?g|png|webp|svg)(\?[^"'\s<>]*)?)/gi, function(match) {
-            // Verificar se já está dentro de uma tag img
-            if (processedHtml.indexOf(`<img src="${match}"`) >= 0 || 
-                processedHtml.indexOf(`<img src='${match}'`) >= 0) {
-                return match;
-            }
-            return `<img src="${match}" alt="Imagem" onerror="this.style.display='none'; this.parentNode.innerHTML='<div class=\\'image-placeholder\\'>Imagem não disponível</div>'">`;
+    // N8N Chat Widget
+// v0.6.20
+    // Chat Widget Script Version 0.6.14 // v0.6.14: Simplified & fixed quick‑action parsing
+function processQuickActions(text) {
+    if (!text) return { text: '', hasQuickActions: false };
+  
+    let cleaned = text.trim();
+    let inputObject = null;
+    const buttons = [], selectOptions = [], links = [];
+  
+    // 1) extract input/secret
+    cleaned = cleaned.replace(
+      /(?:\[\{|\{\[)(input|secret)([\s\S]*?)(?:\}\]|\]\})/i,
+      (_m, type, body) => {
+        const parts = body.split('|').map(p => p.trim()).filter(Boolean);
+        let placeholder='', prefix='', required=false, validation='none';
+        parts.forEach(p => {
+          const low = p.toLowerCase();
+          if (low==='required')               required = true;
+          else if (['email','url','phone'].includes(low)) validation = low;
+          else if (!placeholder)             placeholder = p;
+          else if (!prefix)                  prefix = p;
         });
-        
-        return processedHtml;
-    }
-
-    // Função para processar ![image](url) no Markdown
-    function processImageMarkdown(text) {
-        // Processar imagens - ![alt](url)
-        return text.replace(
-            /!\[([^\]]*)\]\(([^)]+)\)/g, 
-            (match, alt, url) => {
-                // Extrair extensão do arquivo para melhorar a tag alt
-                const extension = url.toLowerCase().match(/\.(gif|jpe?g|png)(\?|$)/);
-                const altText = alt || (extension ? extension[1].toUpperCase() : "Imagem");
-                
-                return `<img src="${url}" alt="${altText}" style="max-width:100%; border-radius:8px; display:block; margin:0 auto;" />`;
-            }
-        );
-    }
-
-    // Escape string para uso em regex
-    function escapeRegExp(string) {
-        return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    }
-
-    // Função para renderizar Markdown para HTML simples
-    function renderMarkdown(text) {
-        if (!text) return '';
-        
-        let html = text;
-        
-        // Armazenar temporariamente os marcadores de ação rápida
-        const quickActionMarkers = [];
-        let markerIndex = 0;
-        
-        // Preservar links de ação rápida - [texto](action:mensagem) ou [texto](acao:mensagem)
-        html = html.replace(/\[([^\]]+)\]\((action|acao):([^)]+)\)/g, (match) => {
-            const marker = `__QUICK_ACTION_LINK_${markerIndex++}__`;
-            quickActionMarkers.push({ marker, content: match });
-            return marker;
+        inputObject = { type, placeholder, prefix, required, validation };
+        return '';
+      }
+    );
+  
+    // 2) extract [text](action:…) links/buttons
+    cleaned = cleaned.replace(
+      /\[([^\]]+)\]\((action|acao):([^)]+)\)/gi,
+      (_m, txt, _t, act) => {
+        if (isValidUrl(act)) buttons.push({ text: txt, action: act, type:'external' });
+        else                 links.push({ text: txt, action: act });
+        return '';
+      }
+    );
+  
+    // 3) extract buttons [{button|Text|Action}]
+    cleaned = cleaned.replace(
+      /\[\{(?:button|botao)(?:\||:)\|?([^|]+)\|([^|}\n]+)\}\]/gi,
+      (_m, btnText, btnAction) => {
+        const act = btnAction.trim();
+        buttons.push({
+          text: btnText.trim(),
+          action: act,
+          type: isValidUrl(act) ? 'external' : 'normal',
         });
-        
-        // Preservar botões - [{button:texto|mensagem}] ou [{botao:texto|mensagem}]
-        html = html.replace(/\[\{(button|botao):([^|]+)\|([^}]+)\}\]/g, (match) => {
-            const marker = `__QUICK_ACTION_BUTTON_${markerIndex++}__`;
-            quickActionMarkers.push({ marker, content: match });
-            return marker;
+        return '';
+      }
+    );
+  
+    // 4) extract select lists [{list|Title|opt:act|…}]
+    cleaned = cleaned.replace(
+      /\[\{(list|lista):([^|]+)\|([^}]+)\}\]/gi,
+      (_m, title, opts) => {
+        const options = opts.split('|').map(o => {
+          const [t,a] = o.split(':');
+          return { text: t.trim(), action: a.trim(), type: isValidUrl(a.trim()) ? 'external' : 'normal' };
         });
-        
-        // Preservar listas de seleção - [{list:titulo|opção1:mensagem1|opção2:mensagem2}] ou [{lista:titulo|opção1:mensagem1|opção2:mensagem2}]
-        html = html.replace(/\[\{(list|lista):([^|]+)\|((?:[^|:]+:[^|:]+\|?)+)\}\]/g, (match) => {
-            const marker = `__QUICK_ACTION_SELECT_${markerIndex++}__`;
-            quickActionMarkers.push({ marker, content: match });
-            return marker;
-        });
-        
-        // Processar imagens markdown - ![alt](url)
-        html = html.replace(/!\[(.*?)\]\((https?:\/\/[^)]+)\)/gi, function(match, alt, url) {
-            return `<img src="${url}" alt="${alt || 'Imagem'}" onerror="this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%2270%22 viewBox=%220 0 100 70%22%3E%3Crect width=%22100%22 height=%2270%22 fill=%22%23f0f0f0%22/%3E%3Ctext x=%2250%22 y=%2235%22 font-family=%22Arial%22 font-size=%228%22 text-anchor=%22middle%22 fill=%22%23999%22%3EImagem não disponível%3C/text%3E%3C/svg%3E';">`;
-        });
-        
-        // Procurar por URLs de imagem diretamente no texto
-        html = html.replace(/(https?:\/\/[^\s<>"']+?\.(gif|jpe?g|png|webp)(\?[^"'\s<>]*)?)/gi, function(match) {
-            // Verificar se já está dentro de uma tag img
-            if (html.indexOf(`<img src="${match}"`) >= 0 || 
-                html.indexOf(`<img src='${match}'`) >= 0) {
-                return match;
-            }
-            return `<img src="${match}" alt="Imagem" onerror="this.onerror=null; this.src='data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 width=%22100%22 height=%2270%22 viewBox=%220 0 100 70%22%3E%3Crect width=%22100%22 height=%2270%22 fill=%22%23f0f0f0%22/%3E%3Ctext x=%2250%22 y=%2235%22 font-family=%22Arial%22 font-size=%228%22 text-anchor=%22middle%22 fill=%22%23999%22%3EImagem não disponível%3C/text%3E%3C/svg%3E';">`;
-        });
-        
-        // Pré-processamento para blocos de código
-        html = html.replace(/```([^`]+)```/g, '<pre>$1</pre>');
-        html = html.replace(/`([^`]+)`/g, '<code>$1</code>');
-        
-        // Processar cabeçalhos
-        html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
-        html = html.replace(/^## (.+)$/gm, '<h2>$1</h2>');
-        html = html.replace(/^### (.+)$/gm, '<h3>$1</h3>');
-        
-        // Processar links - [texto](url)
-        html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
-        
-        // Processar negrito - **texto**
-        html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-        
-        // Processar itálico - *texto*
-        html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
-        
-        // Processar listas ordenadas em uma única passagem
-        html = html.replace(/(?:^\d+\.\s(.+)(?:\n|$))+/gm, function(match) {
-            const items = match.split('\n').filter(line => line.trim());
-            let counter = 1;
-            return '<ol>' + items.map(item => {
-                // Extrair o número original da lista
-                const originalNumber = parseInt(item.match(/^(\d+)\./)[1], 10);
-                // Se houver um salto na numeração, atualizar o contador
-                if (originalNumber > counter) {
-                    counter = originalNumber;
-                }
-                const content = item.replace(/^\d+\.\s+/, '');
-                // Usar o valor do contador para a numeração
-                const li = `<li value="${counter}">${content}</li>`;
-                counter++;
-                return li;
-            }).join('') + '</ol>';
-        });
-        
-        // Processar listas não ordenadas em uma única passagem
-        html = html.replace(/(?:^[\*\-]\s(.+)(?:\n|$))+/gm, function(match) {
-            const items = match.split('\n').filter(line => line.trim());
-            return '<ul>' + items.map(item => {
-                const content = item.replace(/^[\*\-]\s+/, '');
-                return `<li>${content}</li>`;
-            }).join('') + '</ul>';
-        });
-        
-        // Processar quebras de linha
-        html = html.replace(/\n\s*\n/g, '<br><br>');
-        html = html.replace(/\n/g, '<br>');
-        
-        // Restaurar os marcadores de ação rápida
-        quickActionMarkers.forEach(({ marker, content }) => {
-            html = html.replace(marker, content);
-        });
-        
-        return html;
-    }
-
+        selectOptions.push({ title: title.trim(), options });
+        return '';
+      }
+    );
+  
+    // 5) strip any leftover markers
+    cleaned = cleaned
+      .replace(/\[\{[^\]]*?\}\]/g, '')
+      .replace(/\{\[[^\]]*?\]\}/g, '')
+      .trim();
+  
+    const hasQuickActions = !!(inputObject || buttons.length || selectOptions.length || links.length);
+    return { text: cleaned, input: inputObject, buttons, selectOptions, links, hasQuickActions };
+  }
+    
     // Função para mostrar uma mensagem do bot com suporte a markdown e conteúdo especial
-    function displayBotMessage(message) {
+    function displayBotMessage(message, metadata) { 
         const botMessageDiv = document.createElement('div');
         botMessageDiv.className = 'chat-message bot';
         
         // Verificar se a mensagem contém somente uma URL de imagem
-        if (/^https?:\/\/[^\s]+\.(gif|jpe?g|png|webp|svg)(\?[^"'\s<>]*)?$/i.test(message.trim())) {
+        if (/^https?:\/\/[^\s<>"']+\.(gif|jpe?g|png|webp|svg)(\?[^"'\s<>]*)?$/i.test(message.trim())) {
             const url = message.trim();
             
-            // Criar elemento de imagem programaticamente para evitar problemas de escape
+            // Criar elemento de imagem programaticamente para evitar problemas
             const imageContainer = document.createElement('div');
             imageContainer.className = 'image-container';
             
@@ -1411,12 +1763,12 @@
         } else {
             // Processar objetos de ação rápida
             const quickActions = processQuickActions(message);
-            
+            console.log('[DEBUG] displayBotMessage quickActions:', quickActions);
             // Renderizar mensagem normalmente com o texto processado
             botMessageDiv.innerHTML = renderSpecialContent(quickActions.text);
             
             // Renderizar objetos de ação rápida, se houver
-            renderQuickActions(quickActions, botMessageDiv);
+            renderQuickActions(quickActions, botMessageDiv, metadata);
         }
         
         messagesContainer.appendChild(botMessageDiv);
@@ -1487,6 +1839,7 @@
     };
 
     async function startNewConversation() {
+        console.log("[DEBUG] startNewConversation: START"); // Added log
         currentSessionId = generateUUID();
         // Get metadata asynchronously first
         const metadata = await getMetadata();
@@ -1498,14 +1851,22 @@
             metadata: metadata // Use the gathered metadata object
         };
 
-        // Remove any existing initial message (like "connecting...")
-        const initialMessageDiv = messagesContainer.querySelector('.chat-message.bot');
-        if (initialMessageDiv) {
-            initialMessageDiv.remove();
-        }
+    // Remove any existing initial message (like "connecting...")
+    const initialMessageDiv = messagesContainer.querySelector('.chat-message.bot');
+    if (initialMessageDiv) {
+        initialMessageDiv.remove();
+    }
 
-        // Show typing indicator while loading
-        const typingIndicator = showTypingIndicator(); // Keep reference
+    // Always show configured greeting as first bot message
+    displayBotMessage( getGreetingMessage() );
+    
+    // If skipping welcome, stop here to avoid default fallback message
+    if (config.skipWelcomeScreen) {
+        return;
+    }
+    
+    // Show typing indicator while loading
+    const typingIndicator = showTypingIndicator(); // Keep reference
 
         try {
             debug('Iniciando nova conversa:', data);
@@ -1516,81 +1877,6 @@
                     'Accept': 'application/json'
                 },
                 body: JSON.stringify(data)
-            });
-
-            debug('Resposta do webhook - Status:', response.status);
-            // Note: We don't use the response content directly for the *greeting* here.
-            // The greeting comes from config or defaults.
-
-            try {
-                // We still need to consume the response body even if not using its content for greeting
-                const responseText = await response.text();
-                debug('Resposta inicial do webhook (consumida):', responseText);
-                if (responseText && responseText.trim()) {
-                     const responseData = JSON.parse(responseText);
-                     debug('Resposta JSON inicial do webhook (consumida):', responseData);
-                     // Potentially handle historical messages here in the future if needed
-                }
-            } catch (error) {
-                 debug('Erro ao processar resposta inicial do webhook (ignorado para saudação):', error);
-            }
-
-            // --- Determine the final greeting message ---
-            const finalGreetingMessage = getGreetingMessage();
-            debug('Mensagem de saudação final a ser exibida:', finalGreetingMessage);
-
-            // --- Render the final greeting ---
-            hideTypingIndicator(); // Hide indicator *before* showing the actual message
-            displayBotMessage(finalGreetingMessage); // Use the function that handles quick actions
-
-            messagesContainer.scrollTop = messagesContainer.scrollHeight;
-            return finalGreetingMessage; // Return the rendered message content
-
-        } catch (error) {
-            debug('Erro ao iniciar conversa:', error, true);
-            hideTypingIndicator(); // Ensure indicator is hidden on error
-
-            // --- Render the fallback greeting on error ---
-            const fallbackMessage = getGreetingMessage();
-            displayBotMessage(fallbackMessage); // Use the function that handles quick actions
-
-            throw error; // Re-throw error if needed
-        }
-    }
-    
-    async function sendMessage(message) {
-        if (!message || message.trim() === '') return;
-
-        // Get metadata asynchronously first
-        const metadata = await getMetadata();
-
-        const messageData = {
-            action: "sendMessage",
-            sessionId: currentSessionId,
-            route: config.webhook.route || 'general',
-            chatInput: message,
-            metadata: metadata // Use the gathered metadata object
-        };
-
-        // Exibir mensagem do usuário 
-        const userMessageDiv = document.createElement('div');
-        userMessageDiv.className = 'chat-message user';
-        userMessageDiv.textContent = message;
-        messagesContainer.appendChild(userMessageDiv);
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
-
-        // Mostrar indicador de digitação
-        showTypingIndicator();
-
-        try {
-            debug('Enviando mensagem para webhook:', messageData);
-            const response = await fetch(config.webhook.url, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Accept': 'application/json'
-                },
-                body: JSON.stringify(messageData)
             });
 
             debug('Resposta do webhook - Status:', response.status);
@@ -1637,99 +1923,551 @@
             hideTypingIndicator();
             
             // Mostrar a resposta do bot
-            displayBotMessage(responseMessage);
+            displayBotMessage(responseMessage, metadata);
         } catch (error) {
-            debug('Erro na chamada do webhook:', error, true);
+            console.error("[DEBUG] startNewConversation().catch block triggered. Error object:", error); // Added log
+            console.error("[DEBUG] Error message:", error?.message); // Added log
+            console.error("[DEBUG] Error stack:", error?.stack); // Added log
+            debug('Erro ao iniciar conversa:', error, true);
             hideTypingIndicator();
-            displayBotMessage(getText('error', 'Sorry, something went wrong.')); // Use new function for error message
+            displayBotMessage(getText('error', 'Sorry, something went wrong.'), metadata); // Use new function for error message
         }
+    }
+    
+    async function sendMessage(message, { maskedMessage = null, skipLocal = false } = {}) {
+        if (!message || message.trim() === '') return;
+
+        // Get metadata asynchronously first
+        const metadata = await getMetadata();
+
+        const messageData = {
+            action: "sendMessage",
+            sessionId: currentSessionId,
+            route: config.webhook.route || 'general',
+            chatInput: message,
+            metadata: metadata // Use the gathered metadata object
+        };
+
+    // Exibir mensagem do usuário
+    if (!skipLocal) {
+        const userMessageDiv = document.createElement('div');
+        userMessageDiv.className = 'chat-message user';
+        userMessageDiv.textContent = maskedMessage || message;
+        messagesContainer.appendChild(userMessageDiv);
+    }
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+    // Mostrar indicador de digitação
+    showTypingIndicator();
+
+    try {
+        debug('Enviando mensagem para webhook:', messageData);
+        const response = await fetch(config.webhook.url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Accept': 'application/json'
+            },
+            body: JSON.stringify(messageData)
+        });
+
+        debug('Resposta do webhook - Status:', response.status);
+        let responseMessage = getText('processing', 'Processing...'); // Use new function
+            
+        // Verificar se a resposta é válida
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+
+        // Tentar ler o texto da resposta primeiro
+        const responseText = await response.text();
+        debug('Resposta do webhook - Texto:', responseText);
+
+        try {
+            // Tentar fazer o parse do JSON apenas se houver conteúdo
+            if (responseText && responseText.trim()) {
+                const data = JSON.parse(responseText);
+                debug('Resposta do webhook - JSON:', data);
+                
+                // Verificar diferentes formatos possíveis de resposta
+                if (data.output) {
+                    responseMessage = data.output;
+                } else if (data.data && Array.isArray(data.data) && data.data.length > 0) {
+                    if (data.data[0].output) {
+                        responseMessage = data.data[0].output;
+                    }
+                } else if (typeof data === 'string') {
+                    responseMessage = data;
+                } else {
+                    debug('Resposta em formato desconhecido:', data);
+                    responseMessage = getText('fallback', 'Hi! How can I help?'); // Use new function
+                }
+            } else {
+                debug('Resposta vazia do webhook');
+                responseMessage = getText('fallback', 'Hi! How can I help?'); // Use new function
+            }
+        } catch (error) {
+            debug('Erro ao processar JSON da resposta:', error, true);
+            responseMessage = getText('fallback', 'Hi! How can I help?'); // Use new function
+        }
+        
+        // Remover o indicador de digitação
+        hideTypingIndicator();
+        
+        // Mostrar a resposta do bot
+        displayBotMessage(responseMessage, metadata);
+    } catch (error) {
+        debug('Erro na chamada do webhook:', error, true);
+        hideTypingIndicator();
+        displayBotMessage(getText('error', 'Sorry, something went wrong.'), metadata); // Use new function for error message
+    }
     }
 
     // Função auxiliar para extrair URLs de imagem
-    function extractImageUrls(text) {
-        if (!text) return [];
+    function extractGifURL(text) {
+        if (!text) return null;
         
-        const urls = [];
-        const imageRegex = /https?:\/\/[^\s<>"']+\.(gif|jpe?g|png|webp|svg)(\?[^"'\s<>]*)?/gi;
+        // Encontrar todas as URLs no texto
+        const urlRegex = /https?:\/\/\S+/gi;
         let match;
+        let validImages = [];
         
-        while ((match = imageRegex.exec(text)) !== null) {
-            urls.push(match[0]);
+        while ((match = urlRegex.exec(text)) !== null) {
+            const url = match[0];
+            const urlPosition = match.index;
+            
+            // Verificar se a URL está dentro de um bloco de código ou atributo HTML
+            if (isWithinCodeBlock(text, urlPosition) || 
+                isWithinHTMLAttribute(text, urlPosition)) {
+                continue;
+            }
+            
+            // Processar a URL para determinar se é uma imagem
+            const processedUrl = processImageURL(url);
+            
+            if (processedUrl.isImage) {
+                validImages.push({ 
+                    url: processedUrl.url, 
+                    position: urlPosition,
+                    type: processedUrl.type || 'img'
+                });
+            }
         }
         
-        return urls;
+        // Retornar a primeira URL válida encontrada
+        return validImages.length > 0 ? validImages[0].url : null;
     }
 
-    // Função para verificar se uma string é uma URL válida
-    function isValidUrl(string) {
-        try {
-            new URL(string);
+    // Verificar se a URL está dentro de um atributo HTML como src ou href
+    function isWithinHTMLAttribute(text, position) {
+        // Procurar por padrões de atributos HTML antes da posição
+        const beforeText = text.substring(0, position);
+        const afterText = text.substring(position);
+        
+        // Verificar padrões como src="... ou href="...
+        if (/\b(src|href)\s*=\s*["']?[^"']*$/i.test(beforeText)) {
             return true;
-        } catch (_) {
-            return false;
         }
+        
+        // Verificar se estamos dentro de uma tag HTML
+        const openTagBefore = beforeText.lastIndexOf('<');
+        const closeTagBefore = beforeText.lastIndexOf('>');
+        const openTagAfter = afterText.indexOf('<');
+        const closeTagAfter = afterText.indexOf('>');
+        
+        // Se há uma tag aberta antes e fechada depois, estamos dentro de uma tag
+        if (openTagBefore > closeTagBefore && closeTagAfter >= 0 && 
+            (openTagAfter < 0 || closeTagAfter < openTagAfter)) {
+            return true;
+        }
+        
+        return false;
     }
 
-    // Função para processar objetos de ação rápida na mensagem
-    function processQuickActions(text) {
-        if (!text) return { text: '', hasQuickActions: false };
+    // Função para renderizar conteúdo especial como GIFs e imagens
+    function renderSpecialContent(text) {
+        if (!text) return '';
         
-        let processedText = text;
-        let buttons = [];
-        let selectOptions = [];
-        let links = [];
+        // Primeiro passo: verificar se o texto completo é uma URL de imagem
+        if (/^https?:\/\/[^\s<>"']+\.(gif|jpe?g|png|webp|svg)(\?[^"'\s<>]*)?$/i.test(text.trim())) {
+            const url = text.trim();
+            
+            // Usar template string sem quebras de linha para evitar problemas
+            return `<div class="image-container"><img src="${url}" alt="Imagem" onerror="this.style.display='none'; this.parentNode.innerHTML='<div class=\\'image-placeholder\\'>Imagem não disponível</div>'"></div>`;
+        }
         
-        // Processar links de ação rápida - [texto](action:mensagem) ou [texto](acao:mensagem)
-        processedText = processedText.replace(/\[([^\]]+)\]\((action|acao):([^)]+)\)/g, (match, text, actionType, action) => {
-            // Verificar se a ação é uma URL
-            if (isValidUrl(action)) {
-                buttons.push({ text, action, type: 'external' });
-            } else {
-                links.push({ text, action });
+        // Segundo passo: processar markdown e encontrar imagens
+        const lines = text.split('\n');
+        const processedLines = [];
+        
+        for (const line of lines) {
+            // Verificar se a linha é uma imagem markdown
+            const imageMarkdown = line.match(/^!\[(.*?)\]\((https?:\/\/[^)]+)\)$/);
+            if (imageMarkdown) {
+                const [_, alt, url] = imageMarkdown;
+                // Usar template string sem quebras de linha
+                processedLines.push(`<div class="image-container"><img src="${url}" alt="${alt || 'Imagem'}" onerror="this.style.display='none'; this.parentNode.innerHTML='<div class=\\'image-placeholder\\'>Imagem não disponível</div>'"></div>`);
+                continue;
             }
-            return ''; // Remover o link do texto
+            
+            // Verificar se a linha é uma URL de imagem
+            const imageUrl = line.match(/^(https?:\/\/[^\s]+\.(gif|jpe?g|png|webp|svg)(\?[^"'\s<>]*)?)$/i);
+            if (imageUrl) {
+                const url = imageUrl[1];
+                // Usar template string sem quebras de linha
+                processedLines.push(`<div class="image-container"><img src="${url}" alt="Imagem" onerror="this.style.display='none'; this.parentNode.innerHTML='<div class=\\'image-placeholder\\'>Imagem não disponível</div>'"></div>`);
+                continue;
+            }
+            
+            // Para outras linhas, apenas adicionar
+            processedLines.push(line);
+        }
+        
+        // Juntar as linhas processadas
+        const processedText = processedLines.join('\n');
+        
+        // Processar o resto do markdown
+        let processedHtml = renderMarkdown(processedText);
+        
+        // Procurar por URLs de imagem soltas no texto final
+        processedHtml = processedHtml.replace(/(https?:\/\/[^\s<>"']+\.(gif|jpe?g|png|webp|svg)(\?[^"'\s<>]*)?)/gi, function(match) {
+            // Verificar se já está dentro de uma tag img
+            if (processedHtml.indexOf(`<img src="${match}"`) >= 0 || 
+                processedHtml.indexOf(`<img src='${match}'`) >= 0) {
+                return match;
+            }
+            return `<img src="${match}" alt="Imagem" onerror="this.style.display='none'; this.parentNode.innerHTML='<div class=\\'image-placeholder\\'>Imagem não disponível</div>'">`;
         });
         
-        // Processar botões - [{button:texto|mensagem}] ou [{botao:texto|mensagem}]
-        processedText = processedText.replace(/\[\{(button|botao):([^|]+)\|([^}]+)\}\]/g, (match, buttonType, text, action) => {
-            // Verificar se a ação é uma URL
-            if (isValidUrl(action)) {
-                buttons.push({ text, action, type: 'external' });
-            } else {
-                buttons.push({ text, action, type: 'normal' });
+        return processedHtml;
+    }
+
+    // Função para processar ![image](url) no Markdown
+    function processImageMarkdown(text) {
+        // Processar imagens - ![alt](url)
+        return text.replace(
+            /!\[([^\]]*)\]\((https?:\/\/[^)]+)\)/g, 
+            (match, alt, url) => {
+                // Extrair extensão do arquivo para melhorar a tag alt
+                const extension = url.toLowerCase().match(/\.(gif|jpe?g|png)(\?|$)/);
+                const altText = alt || (extension ? extension[1].toUpperCase() : "Imagem");
+                
+                return `<img src="${url}" alt="${altText}" style="max-width:100%; border-radius:8px; display:block; margin:0 auto;" />`;
             }
-            return ''; // Remover o botão do texto
+        );
+    }
+
+    // Escape string para uso em regex
+    function escapeRegExp(string) {
+        return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    }
+
+    // Função para renderizar Markdown para HTML simples
+    function renderMarkdown(text) {
+        if (!text) return '';
+        
+        let html = text;
+        
+        // Armazenar temporariamente os marcadores de ação rápida
+        const quickActionMarkers = [];
+        let markerIndex = 0;
+        
+        // Preservar links de ação rápida - [texto](action:mensagem) ou [texto](acao:mensagem)
+        html = html.replace(/\[([^\]]+)\]\((action|acao):([^)]+)\)/g, (match) => {
+            const marker = `__QUICK_ACTION_LINK_${markerIndex++}__`;
+            quickActionMarkers.push({ marker, content: match });
+            return marker;
         });
         
-        // Processar listas de seleção - [{list:titulo|opção1:mensagem1|opção2:mensagem2}] ou [{lista:titulo|opção1:mensagem1|opção2:mensagem2}]
-        processedText = processedText.replace(/\[\{(list|lista):([^|]+)\|((?:[^|:]+:[^|:]+\|?)+)\}\]/g, (match, listType, title, optionsText) => {
-            const options = optionsText.split('|').map(option => {
-                const [text, action] = option.split(':');
-                return { text, action, type: isValidUrl(action) ? 'external' : 'normal' };
-            });
-            selectOptions.push({ title, options });
-            return ''; // Remover a lista do texto
+        // Preservar botões - [{button:texto|mensagem}] ou [{botao:texto|mensagem}]
+        html = html.replace(/\[\{(button|botao):([^|]+)\|([^|}\n]+)\}\]/gi, (match) => {
+            const marker = `__QUICK_ACTION_BUTTON_${markerIndex++}__`;
+            quickActionMarkers.push({ marker, content: match });
+            return marker;
+        });
+        
+        // Preservar listas de seleção - [{list:titulo|opção1:mensagem1|opção2:mensagem2}] ou [{lista:titulo|opção1:mensagem1|opção2:mensagem2}]
+        html = html.replace(/\[\{(list|lista):([^|]+)\|((?:[^|:]+:[^|:]+\|?)+)\}\]/g, (match) => {
+            const marker = `__QUICK_ACTION_SELECT_${markerIndex++}__`;
+            quickActionMarkers.push({ marker, content: match });
+            return marker;
         });
         
         // Limpar espaços extras após processamento
-        processedText = processedText.trim();
+        html = html.trim();
         
-        // Verificar se há objetos de ação rápida
-        const hasQuickActions = buttons.length > 0 || selectOptions.length > 0 || links.length > 0;
+        // Processar imagens markdown - ![alt](url)
+        html = processImageMarkdown(html);
         
-        return {
-            text: processedText,
-            hasQuickActions,
-            buttons,
-            selectOptions,
-            links
-        };
+        // Processar cabeçalhos
+        html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+        html = html.replace(/^## (.+)$/gm, '<h2>$2</h2>');
+        html = html.replace(/^### (.+)$/gm, '<h3>$3</h3>');
+        
+        // Processar links - [texto](url)
+        html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
+        
+        // Processar negrito - **texto**
+        html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+        
+        // Processar itálico - *texto*
+        html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+        
+        // Processar listas ordenadas em uma única passagem
+        html = html.replace(/(?:^\d+\.\s(.+)(?:\n|$))+/gm, function(match) {
+            const items = match.split('\n').filter(line => line.trim());
+            let counter = 1;
+            return '<ol>' + items.map(item => {
+                // Extrair o número original da lista
+                const originalNumber = parseInt(item.match(/^(\d+)\./)[1], 10);
+                // Se houver um salto na numeração, atualizar o contador
+                if (originalNumber > counter) {
+                    counter = originalNumber;
+                }
+                const content = item.replace(/^\d+\.\s+/, '');
+                // Usar o valor do contador para a numeração
+                const li = `<li value="${counter}">${content}</li>`;
+                counter++;
+                return li;
+            }).join('') + '</ol>';
+        });
+        
+        // Processar listas não ordenadas em uma única passagem
+        html = html.replace(/(?:^[\*\-]\s(.+)(?:\n|$))+/gm, function(match) {
+            const items = match.split('\n').filter(line => line.trim());
+            return '<ul>' + items.map(item => {
+                const content = item.replace(/^[\*\-]\s+/, '');
+                return `<li>${content}</li>`;
+            }).join('') + '</ul>';
+        });
+        
+        // Processar quebras de linha
+        html = html.replace(/\n\s*\n/g, '<br><br>');
+        html = html.replace(/\n/g, '<br>');
+        
+        // Restaurar os marcadores de ação rápida
+        quickActionMarkers.forEach(({ marker, content }) => {
+            html = html.replace(marker, content);
+        });
+        
+        return html;
     }
-    
+
+    // Função para mostrar uma mensagem do bot com suporte a markdown e conteúdo especial
+    function displayBotMessage(message, metadata) { 
+        const botMessageDiv = document.createElement('div');
+        botMessageDiv.className = 'chat-message bot';
+        
+        // Verificar se a mensagem contém somente uma URL de imagem
+        if (/^https?:\/\/[^\s<>"']+\.(gif|jpe?g|png|webp|svg)(\?[^"'\s<>]*)?$/i.test(message.trim())) {
+            const url = message.trim();
+            
+            // Criar elemento de imagem programaticamente para evitar problemas
+            const imageContainer = document.createElement('div');
+            imageContainer.className = 'image-container';
+            
+            const img = document.createElement('img');
+            img.src = url;
+            img.alt = 'Imagem';
+            
+            // Adicionar onerror handler como função em vez de string
+            img.onerror = function() {
+                this.style.display = 'none';
+                const placeholder = document.createElement('div');
+                placeholder.className = 'image-placeholder';
+                placeholder.textContent = 'Imagem não disponível';
+                this.parentNode.innerHTML = '';
+                this.parentNode.appendChild(placeholder);
+            };
+            
+            imageContainer.appendChild(img);
+            botMessageDiv.appendChild(imageContainer);
+        } else {
+            // Processar objetos de ação rápida
+            const quickActions = processQuickActions(message);
+            console.log('[DEBUG] displayBotMessage quickActions:', quickActions);
+            // Renderizar mensagem normalmente com o texto processado
+            botMessageDiv.innerHTML = renderSpecialContent(quickActions.text);
+            
+            // Renderizar objetos de ação rápida, se houver
+            renderQuickActions(quickActions, botMessageDiv, metadata);
+        }
+        
+        messagesContainer.appendChild(botMessageDiv);
+        messagesContainer.scrollTop = messagesContainer.scrollHeight;
+    }
+
     // Função para renderizar objetos de ação rápida
-    function renderQuickActions(quickActions, messageElement) {
+    function renderQuickActions(quickActions, messageElement, metadata) { 
+        console.log('[DEBUG] renderQuickActions called:', quickActions, 'with metadata:', metadata);
         if (!quickActions.hasQuickActions) return;
         
+        // Handle single input/secret object
+        if (quickActions.input) {
+            const obj = quickActions.input;
+            const container = document.createElement('div');
+            container.className = 'quick-action-container';
+            const wrapper = document.createElement('div');
+            wrapper.style.display = 'flex';
+            wrapper.style.gap = '4px';
+            wrapper.style.marginTop = '10px';
+            wrapper.style.alignItems = 'center';
+            
+            let countrySelect = null;
+            let inEl = null; // Declare input element variable here
+            console.debug('[DEBUG] Rendering input/secret object:', obj);
+
+            if (obj.validation === 'phone') {
+                inEl = document.createElement('input'); 
+                inEl.type = 'text'; // Phone input is always text
+                inEl.placeholder = obj.placeholder;
+                if (obj.required) inEl.required = true;
+                inEl.style.flex = '1';
+                inEl.style.height = '40px';
+                inEl.style.paddingRight = '32px'; // room for tick
+
+                countrySelect = document.createElement('select');
+                countrySelect.className = 'phone-code-select';
+                // Full country list - v0.6.6: Include name in dropdown
+                phoneCountryList.forEach(({iso, name, dialCode}) => {
+                    const flag = iso.split('').map(c=>String.fromCodePoint(0x1f1e6 + c.charCodeAt(0)-65)).join('');
+                    const opt = document.createElement('option');
+                    opt.value = dialCode;
+                    // Display Flag + Name (+DialCode)
+                    opt.textContent = `${flag} ${name} (+${dialCode})`; 
+                    countrySelect.appendChild(opt);
+                });
+
+                // v0.6.7: Pre-select country based on detected location & prefill input
+                let prefilled = false;
+                if (metadata && metadata.detectedLocation) { 
+                    const detectedCountry = phoneCountryList.find(c => c.iso === metadata.detectedLocation.country); 
+                    if (detectedCountry) {
+                        countrySelect.value = detectedCountry.dialCode;
+                        inEl.value = '+' + detectedCountry.dialCode + ' '; // Prefill input
+                        debug('Pre-selected country based on metadata:', detectedCountry);
+                        prefilled = true;
+                    }
+                }
+                // Fallback to US (+1) if detection failed or country not found
+                if (!prefilled) {
+                    const fallbackCountry = phoneCountryList.find(c => c.iso === 'US');
+                    if (fallbackCountry) {
+                        countrySelect.value = fallbackCountry.dialCode;
+                        inEl.value = '+' + fallbackCountry.dialCode + ' '; // Prefill input with fallback
+                        debug('Pre-selected fallback country (US):', fallbackCountry);
+                    }
+                }
+                
+                // Append select and input to wrapper *after* potential prefill
+                wrapper.appendChild(countrySelect);
+                wrapper.appendChild(inEl);
+
+                // Sync input/select listener
+                countrySelect.addEventListener('change', () => {
+                    const currentInput = wrapper.querySelector('input'); // Re-select inEl just in case
+                    if (!currentInput) return;
+                    const raw = currentInput.value.replace(/^\+/, '');
+                    currentInput.value = '+' + countrySelect.value + (raw ? ' ' + raw.replace(/^\d+\s*/, '') : '');
+                    currentInput.focus(); // Keep focus on input
+                });
+            
+            } else { // Handle non-phone inputs (secret or other text)
+                inEl = document.createElement('input'); 
+                inEl.type = obj.type === 'secret' ? 'password' : 'text';
+                inEl.placeholder = obj.placeholder;
+                if (obj.required) inEl.required = true;
+                inEl.style.flex = '1';
+                inEl.style.height = '40px';
+                inEl.style.paddingRight = '32px'; // room for tick
+                wrapper.appendChild(inEl);
+            }
+
+            // Tick container
+            const tick = document.createElement('span');
+            tick.className = 'valid-check';
+            tick.textContent = '✓';
+            tick.style.display = 'none';
+            tick.style.position = 'absolute';
+            // v0.6.4: further adjust green tick for phone input
+                // v0.6.5: move tick further left for phone input
+                tick.style.right = '55px'; // Position tick inside input padding to avoid send button
+            tick.style.top = '50%';
+            tick.style.transform = 'translateY(-50%)';
+            tick.style.color = 'green';
+            tick.style.pointerEvents = 'none';
+            tick.style.fontSize = '18px';
+            tick.style.zIndex = '2';
+            wrapper.style.position = 'relative';
+            wrapper.appendChild(tick);
+            const btn = document.createElement('button');
+            btn.className = 'quick-action-input-send';
+            btn.style.height = '40px';
+            btn.style.display = 'flex';
+            btn.style.alignItems = 'center';
+            btn.style.justifyContent = 'center';
+            btn.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M22 2L11 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+            wrapper.appendChild(btn);
+            textarea.disabled = true;
+            sendButton.disabled = true;
+            setTimeout(() => inEl.focus(), 50); // Focus after a short delay
+            // Append input/secret to message element so it is visible
+            container.appendChild(wrapper);
+            messageElement.appendChild(container);
+            // Live validation
+            inEl.addEventListener('input', () => {
+                let v = inEl.value;
+                let ok = true;
+                if (obj.required && !v) ok = false;
+                if (obj.validation === 'email' && v && !/^\S+@\S+\.\S+$/.test(v)) ok = false;
+                if (obj.validation === 'url' && v && !/^https?:\/\/.+/.test(v)) ok = false;
+                if (obj.validation === 'phone' && v) {
+                    v = v.replace(/^\+/, '');
+                    ok = phoneCountryList.some(c=> v.startsWith(c.dialCode)) && /^\d+$/.test(v);
+                }
+                tick.style.display = ok ? 'block' : 'none';
+                inEl.classList.toggle('invalid', !ok);
+                // Phone: update select
+                if (obj.validation === 'phone') {
+                    const v2 = inEl.value.replace(/^\+/, '');
+                    const found = phoneCountryList.find(c=> v2.startsWith(c.dialCode));
+                    if (found) countrySelect.value = found.dialCode;
+                }
+            });
+            btn.addEventListener('click', () => {
+                let v = inEl.value.trim();
+                if (obj.required && !v) {
+                    inEl.classList.add('invalid');
+                    setTimeout(() => inEl.classList.remove('invalid'), 1000);
+                    return;
+                }
+                if (obj.validation === 'email' && !/^\S+@\S+\.\S+$/.test(v)) {
+                    inEl.classList.add('invalid');
+                    setTimeout(() => inEl.classList.remove('invalid'), 1000);
+                    return;
+                }
+                if (obj.validation === 'url' && !/^https?:\/\/.+/.test(v)) {
+                    inEl.classList.add('invalid');
+                    setTimeout(() => inEl.classList.remove('invalid'), 1000);
+                    return;
+                }
+                if (obj.validation === 'phone') v = countrySelect.value + v;
+                const raw = obj.prefix + v;
+                const display = obj.type === 'secret' ? obj.prefix + '*'.repeat(v.length) : raw;
+                disableSmartObjectsInMessages();
+                textarea.disabled = false;
+                sendButton.disabled = false;
+                sendMessage(raw, { maskedMessage: display });
+            });
+            inEl.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    btn.click();
+                }
+            });
+            return;
+        }
+
         // Processar links embutidos e adicionar ao texto da mensagem
         if (quickActions.links.length > 0) {
             const originalContent = messageElement.innerHTML;
@@ -1749,20 +2487,26 @@
             container.className = 'quick-action-container';
             
             // Adicionar botões (limitado a 4)
-            const maxButtons = 4;
-            if (quickActions.buttons.length > 0 && quickActions.selectOptions.length === 0) {
-                quickActions.buttons.slice(0, maxButtons).forEach(button => {
+            if (quickActions.buttons.length > 0) {
+                quickActions.buttons.slice(0, 4).forEach(button => {
                     const buttonElement = document.createElement('button');
                     buttonElement.className = `quick-action-button ${button.type === 'external' ? 'external' : ''}`;
                     buttonElement.textContent = button.text;
                     buttonElement.dataset.action = button.action;
                     buttonElement.dataset.type = button.type;
+                    buttonElement.tabIndex = 0;
+                    if (button.type === 'external') {
+                        // append icon
+                        const icon = document.createElement('span');
+                        icon.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 3h7m0 0v7m0-7L10 14m-4 0L3 7"/></svg>';
+                        buttonElement.appendChild(icon);
+                    }
                     container.appendChild(buttonElement);
                 });
             }
             
             // Adicionar lista de seleção (apenas uma, se não houver botões)
-            if (quickActions.selectOptions.length > 0 && quickActions.buttons.length === 0) {
+            if (quickActions.selectOptions.length > 0) {
                 const selectOption = quickActions.selectOptions[0];
                 const selectElement = document.createElement('select');
                 selectElement.className = 'quick-action-select';
@@ -1795,6 +2539,17 @@
     }
     
     // Função para adicionar event listeners aos objetos de ação rápida
+    // Disable all interactive smart objects in previous messages
+    function disableSmartObjectsInMessages() {
+        document.querySelectorAll('.chat-message.bot, .chat-message.user').forEach(msg => {
+            msg.querySelectorAll('button, select, input, a.quick-action-link').forEach(el => {
+                el.disabled = true;
+                el.classList.add('disabled');
+                el.tabIndex = -1;
+            });
+        });
+    }
+
     function addQuickActionEventListeners(element) {
         // Event listener para botões
         element.querySelectorAll('.quick-action-button').forEach(button => {
@@ -1806,6 +2561,7 @@
                     if (type === 'external') {
                         window.open(action, '_blank');
                     } else {
+                        disableSmartObjectsInMessages();
                         sendMessage(action);
                     }
                 }
@@ -1818,6 +2574,7 @@
                 e.preventDefault();
                 const action = this.dataset.action;
                 if (action) {
+                    disableSmartObjectsInMessages();
                     sendMessage(action);
                 }
             });
@@ -1844,7 +2601,8 @@
     }
 
     // Modificar o handler do botão new-chat-btn
-    newChatBtn.addEventListener('click', function(e) {
+    if (newChatBtn) {
+        newChatBtn.addEventListener('click', async function(e) {
         e.preventDefault();
 
         // Apenas esconder a tela de nova conversa, mantendo o cabeçalho
@@ -1858,27 +2616,20 @@
         // Let startNewConversation handle the indicator and final message.
 
         // Iniciar a conversa (which will show indicator and then the greeting)
-        startNewConversation()
-            .then(function() {
-                // Focar na caixa de texto após a conversa ser inicializada
-                setTimeout(function() {
-                    textarea.focus();
-                }, 100);
-            })
-            .catch(function(error) {
-                debug('Erro ao iniciar conversa no click:', error, true);
-                // Error handling inside startNewConversation already displays the fallback greeting.
-                // Reportar erro se existir callback de erro configurado
-                if (typeof config.onError === 'function') {
-                    config.onError(error);
-                }
-                // Ainda assim, focar na caixa de texto
-                setTimeout(function() {
-                    textarea.focus();
-                }, 100);
-            });
+        try {
+            await startNewConversation();
+            // Focar na caixa de texto após a conversa ser inicializada com sucesso
+            setTimeout(function() {
+                textarea.focus();
+            }, 100);
+        } catch (error) {
+            // Error handling inside startNewConversation already displays the fallback greeting.
+        }
     });
-    
+} else {
+    debug('newChatBtn not found, cannot attach listener.');
+}
+
     sendButton.addEventListener('click', () => {
         const message = textarea.value.trim();
         if (message) {
@@ -1921,19 +2672,20 @@
                 // Let startNewConversation handle the indicator and final message.
 
                 startNewConversation()
-                    .then(() => {
-                        setTimeout(() => textarea.focus(), 100);
-                    })
+                    .then(() => setTimeout(() => textarea.focus(), 100))
                     .catch((error) => {
+                        console.error("[DEBUG] startNewConversation().catch block triggered. Error object:", error); // Added log
+                        console.error("[DEBUG] Error message:", error?.message); // Added log
+                        console.error("[DEBUG] Error stack:", error?.stack); // Added log
                         debug('Erro ao iniciar conversa (skip welcome):', error, true);
                         // Error handling inside startNewConversation already displays the fallback greeting.
                         if (typeof config.onError === 'function') config.onError(error);
                         setTimeout(() => textarea.focus(), 100);
                     });
             } else if (!isFirstTime) {
-                 // Re-opening an existing chat, just focus
-                 // Ensure chat interface is active if it wasn't already
-                 if (!chatInterface.classList.contains('active')) {
+                // Re-opening an existing chat, just focus
+                // Ensure chat interface is active if it wasn't already
+                if (!chatInterface.classList.contains('active')) {
                     chatContainer.querySelector('.new-conversation').style.display = 'none';
                     chatInterface.classList.add('active');
                  }
@@ -1974,8 +2726,7 @@
     });
 
     // Lógica do botão de tamanho de fonte
-    let currentFontSizeIndex = 0; // 0: sm, 1: md, 2: lg, 3: xl
-    const fontSizes = ['sm', 'md', 'lg', 'xl'];
+    currentFontSizeIndex = fontSizes.indexOf(widgetContainer.dataset.fontSize || 'medium');
     // Aplicar tamanho inicial (small)
     widgetContainer.classList.add('font-size-sm');
 
@@ -2002,9 +2753,6 @@
     };
 
     // Função para criar e mostrar o balão de prompt proativo
-    let proactivePromptTimeout;
-    let proactivePromptElement = null;
-
     function createProactivePrompt() {
         if (!config.proactivePrompt.enabled || proactivePromptElement) return;
 
@@ -2015,10 +2763,18 @@
         proactivePromptElement.className = `proactive-prompt${config.style.position === 'left' ? ' position-left' : ''}`;
         proactivePromptElement.innerHTML = `
             ${promptMessage}
-            <button class="close-prompt" title="Fechar">&times;</button>
+            <button class="close-prompt" title="Fechar" style="color: ${config.style.secondaryColor}">×</button>
         `;
         
         widgetContainer.appendChild(proactivePromptElement);
+
+                // Add listener for clicking the prompt itself to open chat
+        proactivePromptElement.addEventListener('click', () => {
+            debug('Proactive prompt clicked!'); 
+            toggleChat(); 
+            hideProactivePrompt(); 
+        });
+        proactivePromptElement.style.cursor = 'pointer'; // Indicate it's clickable
 
         // Adicionar listener para fechar o prompt
         const closePromptButton = proactivePromptElement.querySelector('.close-prompt');
@@ -2102,6 +2858,7 @@
 
     // --- Location Detection Function ---
     async function fetchUserLocation() {
+        console.log("[DEBUG] fetchUserLocation: START"); // Added log
         let locationResult = null; // Store result to dispatch event later
         try {
             if (!config.detectLocation) {
@@ -2131,6 +2888,7 @@
             }
 
         } catch (error) {
+            console.error("[DEBUG] fetchUserLocation: CAUGHT ERROR", error); // Added log
             debug('Error fetching user location:', error, true);
             locationResult = null; // Ensure result is null on error
         }
@@ -2139,12 +2897,14 @@
              const event = new CustomEvent('n8nLocationDetected', { detail: locationResult });
              document.body.dispatchEvent(event);
              debug('Dispatched n8nLocationDetected event with detail:', locationResult);
+             console.log("[DEBUG] fetchUserLocation: FINALLY, returning", locationResult); // Added log
              return locationResult; // Return the result for getMetadata
         }
     }
 
     // --- Metadata Gathering Function ---
     async function getMetadata() {
+        console.log("[DEBUG] getMetadata: START"); // Added log
         let locationData = null;
         if (config.detectLocation && !config.metadata?.detectedLocation) { // Only fetch if enabled and not overridden
             locationData = await fetchUserLocation();
@@ -2173,6 +2933,17 @@
         };
 
         debug('Final metadata object:', finalMetadata);
+        console.log("[DEBUG] getMetadata: SUCCESS, returning metadata"); // Added log
         return finalMetadata;
     }
+
+    // Initial load of countries, placed correctly within IIFE scope
+    loadPhoneCountryList().then(() => {
+        debug("Country list loaded, ready for init.");
+        // The list is now loaded and ready for when initN8nChatWidget is called.
+    }).catch(error => {
+        console.error("[CRITICAL] Failed to load phone country list:", error);
+        // Widget might still function but phone input pre-selection will fail.
+    });
+
 })();
