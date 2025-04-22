@@ -121,13 +121,15 @@
         }
 
         .n8n-chat-widget .brand-header {
-            padding: 16px;
+            padding: 12px 16px 10px 16px;
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 10px;
             border-bottom: 1px solid rgba(8, 10, 86, 0.1);
             position: relative;
-            flex-shrink: 0; /* Ensure header doesn't shrink */
+            flex-shrink: 0;
+            background: var(--chat--color-background);
+            z-index: 12;
         }
 
         .n8n-chat-widget .brand-header img {
@@ -146,18 +148,25 @@
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            padding: 20px;
+            padding: 32px 24px 28px 24px;
             text-align: center;
-            width: 100%;
-            max-width: 300px;
+            width: 90%;
+            max-width: 340px;
+            background: var(--chat--color-background);
+            border-radius: 12px;
+            box-shadow: 0 4px 24px rgba(8, 10, 86, 0.10);
+            z-index: 10;
         }
 
         .n8n-chat-widget .welcome-text {
-            font-size: 24px;
+            font-size: 22px;
             font-weight: 600;
             color: var(--chat--color-font);
-            margin-bottom: 24px;
+            margin-bottom: 18px;
             line-height: 1.3;
+            word-break: break-word;
+            white-space: normal;
+            text-align: center;
         }
 
         .n8n-chat-widget .new-chat-btn {
@@ -246,7 +255,7 @@
         }
 
         .n8n-chat-widget .chat-input {
-            padding: 8px;
+            padding: 10px 12px 10px 12px;
             margin-bottom: 0;
             border-bottom-left-radius: 12px;
             border-bottom-right-radius: 12px;
@@ -254,7 +263,9 @@
             border-top: 1px solid rgba(8, 10, 86, 0.1);
             display: flex;
             gap: 8px;
-            flex-shrink: 0; /* Prevent input area from shrinking */
+            flex-shrink: 0;
+            width: 100%;
+            box-sizing: border-box;
         }
 
         .n8n-chat-widget .chat-input textarea {
@@ -1042,45 +1053,30 @@
             hideProactivePrompt(); // Hide prompt when opening chat
 
             // Determine if we need to show welcome screen or start a conversation
-            if (config.skipWelcomeScreen && isFirstTime) {
-                // Skip welcome, start new conversation directly
+            if (config.skipWelcomeScreen) {
+                // Always skip the welcome screen if enabled
                 chatContainer.querySelector('.new-conversation').style.display = 'none';
                 chatInterface.classList.add('active');
-                
-                // *Don't* add the "connecting" message here directly.
-                // Let startNewConversation handle the indicator and final message.
-
                 startNewConversation()
-                    .then(() => {
-                        setTimeout(() => textarea.focus(), 100);
-                    })
+                    .then(() => setTimeout(() => textarea.focus(), 100))
                     .catch((error) => {
-                        console.error("[DEBUG] startNewConversation().catch block triggered. Error object:", error); // Added log
-                        console.error("[DEBUG] Error message:", error?.message); // Added log
-                        console.error("[DEBUG] Error stack:", error?.stack); // Added log
+                        console.error("[DEBUG] startNewConversation().catch block triggered. Error object:", error);
                         debug('Erro ao iniciar conversa (skip welcome):', error, true);
-                        // Error handling inside startNewConversation already displays the fallback greeting.
                         if (typeof config.onError === 'function') config.onError(error);
                         setTimeout(() => textarea.focus(), 100);
                     });
             } else if (!isFirstTime) {
-                // Re-opening an existing chat, just focus
-                // Ensure chat interface is active if it wasn't already
                 if (!chatInterface.classList.contains('active')) {
                     chatContainer.querySelector('.new-conversation').style.display = 'none';
                     chatInterface.classList.add('active');
-                 }
+                }
                 setTimeout(() => textarea.focus(), 100);
             } else {
-                // Opening for the first time WITHOUT skipWelcomeScreen
-                // Show the welcome screen explicitly if it was hidden
-                chatContainer.querySelector('.new-conversation').style.display = 'block'; // Changed from flex to block if needed
+                chatContainer.querySelector('.new-conversation').style.display = 'block';
                 chatInterface.classList.remove('active');
-                 // Ensure messages are cleared for a clean welcome screen
-                 // Note: If preserving history is desired, this clear needs adjustment
-                 if (messages.length === 0) {
-                     chatMessages.innerHTML = ''; // Clear only if truly empty
-                 }
+                if (messages.length === 0) {
+                    chatMessages.innerHTML = '';
+                }
             }
         } else {
             chatContainer.classList.remove('visible');
