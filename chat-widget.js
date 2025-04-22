@@ -1055,12 +1055,14 @@
             // Determine if we need to show welcome screen or start a conversation
             let newConv = chatContainer.querySelector('.new-conversation');
 if (config.skipWelcomeScreen) {
-    // Remove welcome screen from DOM if present
+    debug('[PATCH] skipWelcomeScreen is true: forcibly removing welcome screen and starting chat');
     if (newConv) {
         newConv.parentNode.removeChild(newConv);
         newConv = null;
     }
     chatInterface.classList.add('active');
+    // Always clear welcome screen remnants
+    if (typeof chatMessages !== 'undefined') chatMessages.innerHTML = '';
     startNewConversation()
         .then(() => setTimeout(() => textarea.focus(), 100))
         .catch((error) => {
@@ -1652,6 +1654,8 @@ if (config.skipWelcomeScreen) {
         }
     }
 
+    // N8N Chat Widget
+// v0.6.19
     // Chat Widget Script Version 0.6.14 // v0.6.14: Simplified & fixed quick‑action parsing
 function processQuickActions(text) {
     if (!text) return { text: '', hasQuickActions: false };
