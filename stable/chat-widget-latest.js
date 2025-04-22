@@ -1,7 +1,7 @@
-// v0.6.23: fix: path lang detection
+// v0.6.24: fix: absolute path for phone-countries.json
 (function() {
     // v0.6.5: define phoneCountryList to avoid ReferenceErrors
-    const countriesFilePath = './phone-countries.json'; // Path relative to chat-widget.js
+    const countriesFilePath = 'https://github.com/felipematos/n8n-advanced-chatclient/stable/phone-countries.json'; // Absolute path for stable
 
     // --- Essential Variable Declarations ---
     let config = {};
