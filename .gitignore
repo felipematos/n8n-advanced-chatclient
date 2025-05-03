@@ -1,5 +1,6 @@
-# windsurf rules
+# version 0.6.25 not stable
+# Ignore additional files
 .windsurfrules
-eslint*.*
-pack*.json
-node_modules/*
+.cursor/*
+.gitignore
+.vscode/*
