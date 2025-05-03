@@ -1,4 +1,4 @@
-// v0.6.23: fix: path lang detection
+// v0.6.24: fix: always remove all previous widgets before rendering new one
 (function() {
     // v0.6.5: define phoneCountryList to avoid ReferenceErrors
     const countriesFilePath = 'phone-countries.json'; // Path relative to chat-widget.js
@@ -21,22 +21,16 @@
 
     // Function to clear previous widget instances and styles
     function cleanupExistingWidget() {
-        // Remover elementos existentes do widget
-        const existingWidget = document.querySelector('.n8n-chat-widget');
-        if (existingWidget) {
-            existingWidget.remove();
-        }
-        
-        // Remover estilos existentes
+        // Remove all widget containers, not just one
+        document.querySelectorAll('.n8n-chat-widget').forEach(el => el.remove());
+        // Remove styles
         const existingStyle = document.getElementById('n8n-chat-widget-styles');
-        if (existingStyle) {
-            existingStyle.remove();
-        }
+        if (existingStyle) existingStyle.remove();
     }
-    
+
     // Limpar quaisquer instâncias anteriores
     cleanupExistingWidget();
-    
+
     // Create and inject styles
     const styles = `
         .n8n-chat-widget {
@@ -1195,7 +1189,7 @@ if (config.skipWelcomeScreen) {
         en: "Hi! How can I help you today?",
         pt: "Olá! Como posso ajudar você hoje?",
         es: "¡Hola! ¿Cómo puedo ayudarte hoy?",
-        ar: "مرحباً! كيف يمكنني مساعدتك اليوم?"
+        ar: "مرحباً! كيف يمكنني مساعدتك اليوم؟"
     };
 
     // Default configuration

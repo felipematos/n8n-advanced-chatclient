@@ -1,6 +1,7 @@
-// v0.6.24: fix: absolute path for phone-countries.json
+// v0.6.26 Stable: fix: always remove all previous widgets before rendering new one
 (function() {
-    const countriesFilePath = 'https://felipematos.github.io/n8n-advanced-chatclient/stable/phone-countries.json'; // Absolute path for stable
+    // v0.6.5: define phoneCountryList to avoid ReferenceErrors
+    const countriesFilePath = 'https://felipematos.github.io/n8n-advanced-chatclient/stable/phone-countries.json'; // Path for stable version
 
     // --- Essential Variable Declarations ---
     let config = {};
@@ -20,22 +21,16 @@
 
     // Function to clear previous widget instances and styles
     function cleanupExistingWidget() {
-        // Remover elementos existentes do widget
-        const existingWidget = document.querySelector('.n8n-chat-widget');
-        if (existingWidget) {
-            existingWidget.remove();
-        }
-        
-        // Remover estilos existentes
+        // Remove all widget containers, not just one
+        document.querySelectorAll('.n8n-chat-widget').forEach(el => el.remove());
+        // Remove styles
         const existingStyle = document.getElementById('n8n-chat-widget-styles');
-        if (existingStyle) {
-            existingStyle.remove();
-        }
+        if (existingStyle) existingStyle.remove();
     }
-    
+
     // Limpar quaisquer instâncias anteriores
     cleanupExistingWidget();
-    
+
     // Create and inject styles
     const styles = `
         .n8n-chat-widget {
@@ -1194,7 +1189,7 @@ if (config.skipWelcomeScreen) {
         en: "Hi! How can I help you today?",
         pt: "Olá! Como posso ajudar você hoje?",
         es: "¡Hola! ¿Cómo puedo ayudarte hoy?",
-        ar: "مرحباً! كيف يمكنني مساعدتك اليوم?"
+        ar: "مرحباً! كيف يمكنني مساعدتك اليوم؟"
     };
 
     // Default configuration
@@ -1657,7 +1652,7 @@ if (config.skipWelcomeScreen) {
 
     // N8N Chat Widget
 // v0.6.20
-    // Chat Widget Script Version 0.6.14 // v0.6.14: Simplified & fixed quick‑action parsing
+    // Chat Widget Script// version 0.0.1 Stable 0.6.14 // v0.6.14: Simplified & fixed quick‑action parsing
 function processQuickActions(text) {
     if (!text) return { text: '', hasQuickActions: false };
   
