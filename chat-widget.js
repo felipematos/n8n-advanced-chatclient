@@ -2287,7 +2287,7 @@
                         const detectedCountry = phoneCountryList.find(c => c.iso === metadata.detectedLocation.country); 
                         if (detectedCountry) {
                             countrySelect.value = detectedCountry.dialCode;
-                            inEl.value = '+' + detectedCountry.dialCode + ' '; // Prefill input
+                            inEl.value = '+' + detectedCountry.dialCode; // Prefill input (no space)
                             debug('Pre-selected country based on metadata:', detectedCountry);
                             prefilled = true;
                         }
@@ -2297,7 +2297,7 @@
                         const fallbackCountry = phoneCountryList.find(c => c.iso === 'US');
                         if (fallbackCountry) {
                             countrySelect.value = fallbackCountry.dialCode;
-                            inEl.value = '+' + fallbackCountry.dialCode + ' '; // Prefill input with fallback
+                            inEl.value = '+' + fallbackCountry.dialCode; // Prefill input with fallback (no space)
                             debug('Pre-selected fallback country (US):', fallbackCountry);
                         }
                     }
@@ -2351,6 +2351,11 @@
                 btn.style.justifyContent = 'center';
                 btn.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M22 2L11 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
                 wrapper.appendChild(btn);
+                btn.disabled = true; // Initially disable send button
+                // Trigger initial validation for phone input if prefilled
+                if (obj.validation === 'phone') {
+                    setTimeout(() => inEl.dispatchEvent(new Event('input')), 50); // Slight delay for elements to render
+                }
                 textarea.disabled = true;
                 sendButton.disabled = true;
                 setTimeout(() => inEl.focus(), 50); // Focus after a short delay
@@ -2366,35 +2371,56 @@
                     if (obj.validation === 'url' && v && !/^https?:\/\/.+/.test(v)) ok = false;
                     if (obj.validation === 'phone' && v) {
                         v = v.replace(/^\+/, '');
-                        ok = phoneCountryList.some(c=> v.startsWith(c.dialCode)) && /^\d+$/.test(v);
+                        // For phone, v already includes the dial code from the input field (e.g., +12223334444)
+                        // We need to check if the part *after* the selected dial code is purely numeric and of reasonable length
+                        const selectedDialCode = countrySelect.value;
+                        if (v.startsWith('+' + selectedDialCode)) {
+                            const numberPart = v.substring(1 + selectedDialCode.length);
+                            ok = /^\d{5,}$/.test(numberPart); // Example: at least 5 digits for the number part
+                        } else {
+                            ok = false; // Input doesn't start with the selected country code
+                        }
                     }
                     tick.style.display = ok ? 'block' : 'none';
-                    inEl.classList.toggle('invalid', !ok);
+                    // inEl.classList.toggle('invalid', !ok); // Remove red border styling
+                    btn.disabled = !ok; // Disable send button if not ok
                     // Phone: update select
                     if (obj.validation === 'phone') {
                         const v2 = inEl.value.replace(/^\+/, '');
-                        const found = phoneCountryList.find(c=> v2.startsWith(c.dialCode));
+                        const currentDialCode = '+' + countrySelect.value;
+                        const found = phoneCountryList.find(c => v2.startsWith(c.dialCode) && v2.startsWith(currentDialCode.replace('+',''))); // Ensure it matches the selected one too
+                        // Also, if user types a different valid prefix, update the select
+                        if (!v2.startsWith(countrySelect.value)) {
+                            const bestMatch = phoneCountryList.find(c => v2.startsWith(c.dialCode));
+                            if (bestMatch) {
+                                countrySelect.value = bestMatch.dialCode;
+                            }
+                        }
                         if (found) countrySelect.value = found.dialCode;
                     }
                 });
                 btn.addEventListener('click', () => {
                     let v = inEl.value.trim();
                     if (obj.required && !v) {
-                        inEl.classList.add('invalid');
-                        setTimeout(() => inEl.classList.remove('invalid'), 1000);
+                        // Visual feedback handled by button state and green tick
                         return;
                     }
                     if (obj.validation === 'email' && !/^\S+@\S+\.\S+$/.test(v)) {
-                        inEl.classList.add('invalid');
-                        setTimeout(() => inEl.classList.remove('invalid'), 1000);
+                        // Visual feedback handled by button state and green tick
                         return;
                     }
                     if (obj.validation === 'url' && !/^https?:\/\/.+/.test(v)) {
-                        inEl.classList.add('invalid');
-                        setTimeout(() => inEl.classList.remove('invalid'), 1000);
+                        // Visual feedback handled by button state and green tick
                         return;
                     }
-                    if (obj.validation === 'phone') v = countrySelect.value + v;
+                    if (obj.validation === 'phone') {
+                        // v already contains the full number like +12223334444 from the input field
+                        // No need to prepend countrySelect.value again
+                        // Ensure it starts with a + for consistency if it was typed without it
+                        if (!v.startsWith('+')) {
+                            v = '+' + v;
+                        }
+                    }
                     const raw = obj.prefix + v;
                     const display = obj.type === 'secret' ? obj.prefix + '*'.repeat(v.length) : raw;
                     disableSmartObjectsInMessages();
