@@ -1,996 +1,706 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Chat Widget Object Test</title>
-    <style>
-        /* --- Basic Test Page Styles --- */
-        body {
-            font-family: sans-serif;
-            /* Define CSS variables used by widget styles for testing */
-            --chat--color-primary: #080A56;
-            --chat--color-secondary: #0b0f7b;
-            --chat--color-background: #ffffff;
-            --chat--color-font: #333333;
-            --chat--color-primary-light: #f0f2ff;
-            --chat--color-secondary-light: #f5f0ff;
-            --chat--color-primary-light-hover: #e6e9ff;
-            --chat--color-secondary-light-hover: #ede6ff;
-        }
-        .container {
-            display: flex;
-        }
-        .column {
-            width: 50%;
-            padding: 20px;
-            box-sizing: border-box;
-        }
-        textarea {
-            width: 100%;
-            height: 300px;
-            max-height: 300px;
-            margin-bottom: 10px;
-        }
+ <title>Chat Widget Object Test</title>
+ <style>
+ /* --- Basic Test Page Styles --- */
+ body {
+ font-family: sans-serif;
+ /* Define CSS variables used by widget styles for testing */
+ --chat--color-primary: #080A56;
+ --chat--color-secondary: #0b0f7b;
+ --chat--color-background: #ffffff;
+ --chat--color-font: #333333;
+ --chat--color-primary-light: #f0f2ff;
+ --chat--color-secondary-light: #f5f0ff;
+ --chat--color-primary-light-hover: #e6e9ff;
+ --chat--color-secondary-light-hover: #ede6ff;
+ }
+ .container {
+ display: flex;
+ }
+ .column {
+ width:50%;
+ padding:20px;
+ box-sizing: border-box;
+ }
+ textarea {
+ width:100%;
+ height:300px;
+ max-height:300px;
+ margin-bottom:10px;
+ }
         
-        /* --- Wrapper for Rendered Output --- */
-        .n8n-chat-widget { /* Apply this class to the output wrapper */
-             max-width: 400px; /* Limit width for better visual testing */
-             margin: auto;
-             border: 1px solid #ccc;
-             padding: 10px;
-             min-height: 300px;
-        }
+ /* --- Wrapper for Rendered Output --- */
+ .n8n-chat-widget { /* Apply this class to the output wrapper */
+ max-width:400px; /* Limit width for better visual testing */
+ margin: auto;
+ border:1px solid #ccc;
+ padding:10px;
+ min-height:300px;
+ }
 
-        /* Styles needed specifically for the test page's rendered output */
-         .n8n-chat-widget .chat-message { 
-            padding: 12px 16px;
-            margin: 8px 0;
-            border-radius: 12px;
-            max-width: 90%; /* Adjusted for test view */
-            word-wrap: break-word;
-            font-size: 14px;
-            line-height: 1.5;
-            overflow-wrap: break-word;
-            /* Simulate bot message appearance */
-            background: var(--chat--color-background);
-            border: 1px solid rgba(8, 10, 86, 0.2);
-            color: var(--chat--color-font);
-            align-self: flex-start;
-            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-        }
+ /* Styles needed specifically for the test page's rendered output */
+ .n8n-chat-widget .chat-message { 
+ padding:12px16px;
+ margin:8px0;
+ border-radius:12px;
+ max-width:90%; /* Adjusted for test view */
+ word-wrap: break-word;
+ font-size:14px;
+ line-height:1.5;
+ overflow-wrap: break-word;
+ /* Simulate bot message appearance */
+ background: var(--chat--color-background);
+ border:1px solid rgba(8,10,86,0.2);
+ color: var(--chat--color-font);
+ align-self: flex-start;
+ box-shadow:04px12px rgba(0,0,0,0.05);
+ }
 
 
-        /* --- Styles copied from chat-widget.js for Quick Action Testing --- */
-        /* Apply these styles within the .n8n-chat-widget context */
-        .n8n-chat-widget .quick-action-container {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            margin-top: 10px;
-            position: relative; /* Needed for absolute positioning of valid-check */
-        }
+ /* --- Styles copied from chat-widget.js for Quick Action Testing --- */
+ /* Apply these styles within the .n8n-chat-widget context */
+ .n8n-chat-widget .quick-action-container {
+ display: flex;
+ flex-wrap: wrap;
+ gap:8px;
+ margin-top:10px;
+ position: relative; /* Needed for absolute positioning of valid-check */
+ }
 
-        .n8n-chat-widget .quick-action-button {
-            background: linear-gradient(135deg, var(--chat--color-primary-light, #f0f2ff) 0%, var(--chat--color-secondary-light, #f5f0ff) 100%);
-            color: var(--chat--color-primary, #080A56);
-            border: 1px solid rgba(8, 10, 86, 0.1);
-            border-radius: 8px;
-            padding: 8px 16px;
-            font-size: 14px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            display: inline-flex; 
-            align-items: center;
-            gap: 8px;
-            box-shadow: 0 2px 6px rgba(8, 10, 86, 0.05);
-            text-decoration: none; 
-            line-height: 1.2; 
-            vertical-align: middle; 
-            margin-right: 5px; 
-        }
+ .n8n-chat-widget .quick-action-button {
+ background: linear-gradient(135deg, var(--chat--color-primary-light, #f0f2ff)0%, var(--chat--color-secondary-light, #f5f0ff)100%);
+ color: var(--chat--color-primary, #080A56);
+ border:1px solid rgba(8,10,86,0.1);
+ border-radius:8px;
+ padding:8px16px;
+ font-size:14px;
+ font-weight:500;
+ cursor: pointer;
+ transition: all0.2s ease;
+ display: inline-flex; 
+ align-items: center;
+ gap:8px;
+ box-shadow:02px6px rgba(8,10,86,0.05);
+ text-decoration: none; 
+ line-height:1.2; 
+ vertical-align: middle; 
+ margin-right:5px; 
+ }
 
-        .n8n-chat-widget .quick-action-button:hover {
-            background: linear-gradient(135deg, var(--chat--color-primary-light-hover, #e6e9ff) 0%, var(--chat--color-secondary-light-hover, #ede6ff) 100%);
-            transform: translateY(-1px);
-            box-shadow: 0 4px 8px rgba(8, 10, 86, 0.1);
-        }
+ .n8n-chat-widget .quick-action-button:hover {
+ background: linear-gradient(135deg, var(--chat--color-primary-light-hover, #e6e9ff)0%, var(--chat--color-secondary-light-hover, #ede6ff)100%);
+ transform: translateY(-1px);
+ box-shadow:04px8px rgba(8,10,86,0.1);
+ }
 
-        .n8n-chat-widget .quick-action-button:active {
-            transform: translateY(1px);
-            box-shadow: 0 2px 4px rgba(8, 10, 86, 0.05);
-        }
+ .n8n-chat-widget .quick-action-button:active {
+ transform: translateY(1px);
+ box-shadow:02px4px rgba(8,10,86,0.05);
+ }
 
-        .n8n-chat-widget .quick-action-button.external {
-            padding-right: 12px;
-        }
+ .n8n-chat-widget .quick-action-button.disabled,
+ .n8n-chat-widget .quick-action-link.disabled,
+ .n8n-chat-widget .quick-action-select.disabled {
+ opacity:0.5;
+ cursor: not-allowed;
+ pointer-events: none;
+ }
+ .n8n-chat-widget .quick-action-input-send.disabled {
+ opacity:0.5;
+ cursor: not-allowed;
+ pointer-events: none;
+ background: #ccc; 
+ }
 
-         /* External-icon styling */
-        .n8n-chat-widget .quick-action-button.external svg {
-            width: 14px;
-            height: 14px;
-            margin-left: 6px;
-            vertical-align: middle;
-            opacity: 0.7;
-            stroke: currentColor; 
-        }
-
-        .n8n-chat-widget .quick-action-select {
-            background: linear-gradient(135deg, var(--chat--color-primary-light, #f0f2ff) 0%, var(--chat--color-secondary-light, #f5f0ff) 100%);
-            color: var(--chat--color-primary, #080A56); 
-            border: 1px solid rgba(8, 10, 86, 0.1);
-            border-radius: 8px;
-            padding: 8px 12px;
-            font-size: 14px;
-            font-weight: 500;
-            cursor: pointer;
-            transition: all 0.2s ease;
-            width: 100%;
-            max-width: 100%;
-            box-shadow: 0 2px 6px rgba(8, 10, 86, 0.05);
-            appearance: none;
-            background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23080A56' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6 9 12 15 18 9'%3e%3c/polyline%3e%3c/svg%3e");
-            background-repeat: no-repeat;
-            background-position: right 10px center;
-            background-size: 15px;
-            padding-right: 35px;
-            height: 40px; 
-            box-sizing: border-box; 
-        }
-
-        .n8n-chat-widget .quick-action-select:hover {
-            background: linear-gradient(135deg, var(--chat--color-primary-light-hover, #e6e9ff) 0%, var(--chat--color-secondary-light-hover, #ede6ff) 100%);
-            transform: translateY(-1px);
-            box-shadow: 0 4px 8px rgba(8, 10, 86, 0.1);
-        }
-
-        .n8n-chat-widget .quick-action-select:active {
-            transform: translateY(1px);
-            box-shadow: 0 2px 4px rgba(8, 10, 86, 0.05);
-        }
-
-        .n8n-chat-widget .quick-action-select option {
-            background-color: var(--chat--color-background, #ffffff);
-            color: var(--chat--color-font, #333333);
-        }
-
-        .n8n-chat-widget .quick-action-link {
-            font-weight: bold;
-            background: linear-gradient(to right, var(--chat--color-primary), var(--chat--color-secondary));
-            -webkit-background-clip: text;
-            color: transparent;
-            text-decoration: none;
-            cursor: pointer;
-            transition: opacity 0.2s;
-            margin-right: 10px; 
-            font-size: 14px; 
-            line-height: 1.5; 
-            display: inline-block; 
-        }
-
-        .n8n-chat-widget .quick-action-link:hover {
-            opacity: 0.8;
-        }
-
-        .n8n-chat-widget .quick-action-button.disabled,
-        .n8n-chat-widget .quick-action-link.disabled,
-        .n8n-chat-widget .quick-action-select.disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            pointer-events: none;
-        }
-        .n8n-chat-widget .quick-action-input-send.disabled {
-            opacity: 0.5;
-            cursor: not-allowed;
-            pointer-events: none;
-            background: #ccc; 
-        }
-
-        /* Add invalid/valid styles */
-        .n8n-chat-widget .quick-action-container input.invalid {
-            border-color: red !important; 
-            color: red;
-             /* Removed animation for simplicity for now */
-            /* animation: blink-invalid 0.5s ease 0s 2; */
-        }
-        .n8n-chat-widget .valid-check {
-            position: absolute;
-            right: 50px; /* Position relative to the container */
-            top: 50%;
-            transform: translateY(-50%);
-            color: green;
-            font-size: 18px;
-            z-index: 2;
-            pointer-events: none;
-            display: none; /* Hidden by default */
-        }
+ /* Add invalid/valid styles */
+ .n8n-chat-widget .quick-action-container input.invalid {
+ border-color: red !important; 
+ color: red;
+ /* Removed animation for simplicity for now */
+ /* animation: blink-invalid0.5s ease0s2; */
+ }
+ .n8n-chat-widget .valid-check {
+ position: absolute;
+ right:50px; /* Position relative to the container */
+ top:50%;
+ transform: translateY(-50%);
+ color: green;
+ font-size:18px;
+ z-index:2;
+ pointer-events: none;
+ display: none; /* Hidden by default */
+ }
         
-        /* Consistent input/secret styling */
-        .n8n-chat-widget .quick-action-container input {
-            padding: 12px;
-            border: 1px solid rgba(8, 10, 86, 0.2);
-            border-radius: 8px;
-            background: var(--chat--color-background);
-            color: var(--chat--color-font);
-            font-size: 14px;
-            height: 40px;
-            flex: 1 1 0%;
-            box-sizing: border-box;
-             padding-right: 30px; /* Make space for the checkmark */
-        }
+ /* Consistent input/secret styling */
+ .n8n-chat-widget .quick-action-container input {
+ padding:12px;
+ border:1px solid rgba(8,10,86,0.2);
+ border-radius:8px;
+ background: var(--chat--color-background);
+ color: var(--chat--color-font);
+ font-size:14px;
+ height:40px;
+ flex:1 1 0%;
+ box-sizing: border-box;
+ padding-right:30px; /* Make space for the checkmark */
+ }
 
-        /* Ensure container uses flex for alignment */
-         .n8n-chat-widget .quick-action-container {
-            display: flex;
-            align-items: center; /* Vertically align items */
-            gap: 4px;
-            width: 100%;
-            position: relative; /* For absolute positioning of checkmark */
-        }
+ /* Ensure container uses flex for alignment */
+ .n8n-chat-widget .quick-action-container {
+ display: flex;
+ align-items: center; /* Vertically align items */
+ gap:4px;
+ width:100%;
+ position: relative; /* For absolute positioning of checkmark */
+ }
         
-        .n8n-chat-widget .quick-action-input-send {
-            background: linear-gradient(135deg, var(--chat--color-primary) 0%, var(--chat--color-secondary) 100%);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            padding: 0 12px;
-            height: 40px;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            transition: transform 0.2s, opacity 0.2s;
-            margin-left: 4px; 
-            flex-shrink: 0; 
-        }
-        .n8n-chat-widget .quick-action-input-send:hover:not(.disabled) {
-            transform: scale(1.05);
-        }
-         .n8n-chat-widget .quick-action-input-send svg {
-            fill: none;
-            stroke: white;
-            stroke-width: 2;
-            width: 18px; 
-            height: 18px;
-        }
+ .n8n-chat-widget .quick-action-input-send {
+ background: linear-gradient(135deg, var(--chat--color-primary)0%, var(--chat--color-secondary)100%);
+ color: white;
+ border: none;
+ border-radius:8px;
+ padding:0 12px;
+ height:40px;
+ cursor: pointer;
+ display: flex;
+ align-items: center;
+ justify-content: center;
+ transition: transform0.2s, opacity0.2s;
+ margin-left:4px; 
+ flex-shrink:0; 
+ }
+ .n8n-chat-widget .quick-action-input-send:hover:not(.disabled) {
+ transform: scale(1.05);
+ }
+ .n8n-chat-widget .quick-action-input-send svg {
+ fill: none;
+ stroke: white;
+ stroke-width:2;
+ width:18px; 
+ height:18px;
+ }
 
-    </style>
+ </style>
 </head>
 <body>
-    <h1>Chat Widget Object Test</h1>
-    <div class="container">
-        <div class="column">
-            <h2>Template Input</h2>
-            <label for="template-select">Select Template:</label>
-            <select id="template-select">
-                <option value="">-- Select --</option>
-                <option value="button1">Button - Simple</option>
-                <option value="input_email_req">Input - Email (Required)</option>
-                <option value="input_email_opt">Input - Email (Optional)</option>
-                <option value="input_phone_req">Input - Phone (Required)</option>
-                <option value="input_url_opt">Input - URL (Optional)</option>
-                <option value="input_secret_req">Input - Secret (Required)</option>
-                <option value="multipleButtons">Multiple Buttons (Incl. External)</option>
-                <option value="image">Image URL</option>
-                <option value="markdown">Markdown Text</option>
-                <!-- Add more templates here -->
-                <option value="all_actions">All Actions Combined</option>
-                 <option value="only_input_req">Only Input Required</option>
-                 <option value="only_input_opt">Only Input Optional</option>
-            </select>
-            <textarea id="template-textarea"></textarea>
-        </div>
-        <div class="column">
-            <h2>Rendered Output:</h2>
-            <!-- Wrapper div for chat widget -->
-            <div class="n8n-chat-widget"> 
-                <div id="rendered-output"></div>
-            </div>
-            <div id="action-feedback" style="margin-top: 10px; color: blue; font-style: italic;"></div>
-        </div>
-    </div>
-    <!-- Include the actual widget code directly as an inline script -->
-    <script id="widget-functions">
-    // Define the necessary functions from chat-widget.js
-    // This is a minimal version with only what's needed for testing
+ <h1>Chat Widget Object Test</h1>
+ <div class="container">
+ <div class="column">
+ <h2>Template Input</h2>
+ <label for="template-select">Select Template:</label>
+ <select id="template-select">
+ <option value="">-- Select --</option>
+ <option value="button1">Button - Simple</option>
+ <option value="input_email_req">Input - Email (Required)</option>
+ <option value="input_email_opt">Input - Email (Optional)</option>
+ <option value="input_phone_req">Input - Phone (Required)</option>
+ <option value="input_url_opt">Input - URL (Optional)</option>
+ <option value="input_secret_req">Input - Secret (Required)</option>
+ <option value="multipleButtons">Multiple Buttons (Incl. External)</option>
+ <option value="image">Image URL</option>
+ <option value="markdown">Markdown Text</option>
+ <!-- Add more templates here -->
+ <option value="all_actions">All Actions Combined</option>
+ <option value="only_input_req">Only Input Required</option>
+ <option value="only_input_opt">Only Input Optional</option>
+ </select>
+ <textarea id="template-textarea"></textarea>
+ </div>
+ <div class="column">
+ <h2>Rendered Output:</h2>
+ <!-- Wrapper div for chat widget -->
+ <div class="n8n-chat-widget"> 
+ <div id="rendered-output"></div>
+ </div>
+ <div id="action-feedback" style="margin-top:10px; color: blue; font-style: italic;"></div>
+ </div>
+ </div>
+ <!-- Include the actual widget code directly as an inline script -->
+ <script id="widget-functions">
+ // Define the necessary functions from chat-widget.js
+ // This is a minimal version with only what's needed for testing
+ // --- MOVED TO MAIN SCRIPT BLOCK ---
+ </script>
+
+ <!-- Main Test Page Script -->
+ <script>
+ // --- MOVED FUNCTIONS START ---
+ // Define the necessary functions from chat-widget.js
+ // This is a minimal version with only what's needed for testing
     
-    function isValidUrl(string) {
-        // Basic check for common URL patterns
-        try {
-            new URL(string);
-            const url = new URL(string);
-            // Allow http and https protocols
-            return url.protocol === "http:" || url.protocol === "https:";
-        } catch (_) {
-            return false;
-        }
-    }
+ function isValidUrl(string) {
+ // Basic check for common URL patterns
+ try {
+ new URL(string);
+ const url = new URL(string);
+ // Allow http and https protocols
+ return url.protocol === "http:" || url.protocol === "https:";
+ } catch (_) {
+ return false;
+ }
+ }
+
+ // Basic email validation (adjust regex as needed)
+ function isValidEmail(email) {
+ const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+ return emailRegex.test(email);
+ }
+
+ // Basic phone validation (very simple, adjust as needed)
+ function isValidPhone(phone) {
+ // Allows digits, spaces, +, -, (, ) - adjust for stricter formats
+ const phoneRegex = /^[+\-\(\)\d\s]+$/;
+ return phoneRegex.test(phone);
+ }
     
-    // Function to process quick actions from text
-    function processQuickActions(text) {
-        if (!text) return { text: '', hasQuickActions: false };
-        let cleaned = text; // Start with original text
-        let inputObject = null;
-        const buttons = [], selectOptions = [], links = [];
+ // Function to process quick actions from text
+ function processQuickActions(text) {
+ if (!text) return { text: '', hasQuickActions: false };
+ let cleaned = text; // Start with original text
+ let inputObject = null;
+ const buttons = [], selectOptions = [], links = [];
         
-        // Process input/secret fields
-        cleaned = cleaned.replace(
-            /(?:\[\{|\{\[)(input|secret)((?:\|[^\]\}]+)*)(?:\}\]|\]\})/i,
-            (match, type, body) => {
-                const parts = body.split('|').map(p => p.trim()).filter(Boolean);
-                let placeholder = '', required = false, validation = 'none', prefix = '';
-                parts.forEach(p => {
-                    const low = p.toLowerCase();
-                    if (low === 'required') required = true;
-                    else if (['email', 'url', 'phone'].includes(low)) validation = low;
-                    else if (!placeholder) placeholder = p;
-                });
-                inputObject = { type, placeholder, prefix, required, validation };
-                return '';
-            }
-        );
+ // Process input/secret fields
+ cleaned = cleaned.replace(
+ /(?:\[\{|\{\[)(input|secret)((?:\|[^\]\}]+)*)(?:\}\]|\]\})/i,
+ (match, type, body) => {
+ const parts = body.split('|').map(p => p.trim()).filter(Boolean);
+ let placeholder = '', required = false, validation = 'none', prefix = '';
+ parts.forEach(p => {
+ const low = p.toLowerCase();
+ if (low === 'required') required = true;
+ else if (['email', 'url', 'phone'].includes(low)) validation = low;
+ else if (!placeholder) placeholder = p;
+ });
+ inputObject = { type, placeholder, prefix, required, validation };
+ return '';
+ }
+ );
         
-        // Process buttons
-        cleaned = cleaned.replace(
-            /(?:\[\{|\{\[)button\|([^\|\]]+)(?:\|([^\]\}]+))?(?:\}\]|\]\})/gi,
-            (match, text, t, actn) => {
-                buttons.push({ text, action: actn });
-                return '';
-            }
-       );
+ // Process buttons
+ cleaned = cleaned.replace(
+ /(?:\[\{|\{\[)button\|([^\|\]]+)(?:\|([^\]\}]+))?(?:\}\]|\]\})/gi,
+ (match, text, t, actn) => {
+ buttons.push({ text, action: actn });
+ return '';
+ }
+ );
             
-        // Process action links
-        cleaned = cleaned.replace(
-            /\[([^\]]+)\]\((action|acao):([^)]+)\)/gi,
-            (match, txt, _t, act) => {
-                const actionTrimmed = act.trim();
-                // Treat as external button only if it's a valid absolute URL
-                if (isValidUrl(actionTrimmed)) {
-                    buttons.push({ text: txt.trim(), action: actionTrimmed, type: 'external' });
-                } else {
-                    links.push({ text: txt.trim(), action: actionTrimmed });
-                }
-                return '';
-            }
-        );
+ // Process action links
+ cleaned = cleaned.replace(
+ /\[([^\]]+)\]\((action|acao):([^)]+)\)/gi,
+ (match, txt, _t, act) => {
+ const actionTrimmed = act.trim();
+ // Treat as external button only if it's a valid absolute URL
+ if (isValidUrl(actionTrimmed)) {
+ buttons.push({ text: txt.trim(), action: actionTrimmed, type: 'external' });
+ } else {
+ links.push({ text: txt.trim(), action: actionTrimmed });
+ }
+ return '';
+ }
+ );
+            
+ // Process select/list option options
+ cleaned = cleaned.replace(
+ // Corrected Regex (v3): Use non-greedy match for options string
+ /(?:\[\{|\{\[)list\|([^|\]]+)(?:\|(.*?))?(?:\}\]|\]\})/gi,
+ (match, label, optionsStr) => {
+ if (optionsStr) {
+ const options = [];
+ if (optionsStr) {
+ const optionPairs = optionsStr.split('|');
+ optionPairs.forEach(pair => {
+ const [text, value] = pair.split(':').map(p => p.trim());
+ if (text && value) {
+ options.push({ text, action: value });
+ }
+ });
+ }
+ if (options.length >0) {
+ selectOptions.push({ label, options });
+ }
+ }
+ return '';
+ }
+ );
         
-        // Process select/list option options
-        cleaned = cleaned.replace(
-            /(?:\[\{|\{\[)list\|([^\|\]]+)(?:\|([^\}\]]+))?)?(?:\}\]|\]\})/gi,
-            (match, label, optionsStr) => {
-                if (optionsStr) {
-                    const options = [];
-                    if (optionsStr) {
-                        const optionPairs = optionsStr.split('|');
-                        optionPairs.forEach(pair => {
-                            const [text, value] = pair.split(':').map(p => p.trim());
-                        if (text && value) {
-                            options.push({ text, action: value });
-                    }
-                    });
-                        }
-                    if (options.length > 0) {
-                   selectOptions.push({ label, options });
-                    }
-                }
-                return '';
-            }
-        );
-        
-        // Clean up any remaining quick action syntax
-        cleaned = cleaned
-            .replace(/\[\{[^\]]*?\}\]/g, '')
-            .replace(/\{\[[^\]]*?\]\}/g, '')
-            .trim();
+ // Clean up any remaining quick action syntax
+ cleaned = cleaned
+ .replace(/\[\{[^\]]*?\}\]/g, '')
+ .replace(/\{\[[^\]]*?\]\}/g, '')
+ .trim();
     
-        const hasQuickActions = !!(inputObject || buttons.length || selectOptions.length || links.length);
-        return { text: cleaned, input: inputObject, buttons, selectOptions, links, hasQuickActions };
-    }
+ const hasQuickActions = !!(inputObject || buttons.length || selectOptions.length || links.length);
+ return { text: cleaned, input: inputObject, buttons, selectOptions, links, hasQuickActions };
+ }
     
-    // --- Core Logic Functions (Adapted for Testing) ---
-    function processQuickActions(text) {
-        if (!text) return { text: '', hasQuickActions: false };
-        let cleaned = text; // Start with original text
-        let inputObject = null;
-        const buttons = [], selectOptions = [], links = [];
-
-        // Process input/secret fields
-        cleaned = cleaned.replace(
-            /(?:\[\{|\{\[)(input|secret)((?:\|[^\]\}]+)*)(?:\}\]|\]\})/i,
-            (match, type, body) => {
-                const parts = body.split('|').map(p => p.trim()).filter(Boolean);
-                let placeholder = '', required = false, validation = 'none', prefix = '';
-                parts.forEach(p => {
-                    const low = p.toLowerCase();
-                    if (low === 'required') required = true;
-                    else if (['email', 'url', 'phone'].includes(low)) validation = low;
-                    else if (!placeholder) placeholder = p;
-                });
-                inputObject = { type, placeholder, prefix, required, validation };
-                return '';
-            }
-        );
-
-        // Process buttons
-        cleaned = cleaned.replace(
-            /(?:\[\{|\{\[)button\|([^\|\]]+)(?:\|([^\]\}]+))?(?:\}\]|\]\})/gi,
-            (match, text, t, actn) => {
-                buttons.push({ text, action: actn });
-                return '';
-            }
-        );
-
-        // Process action links
-        cleaned = cleaned.replace(
-            /\[([^\]]+)\]\((action|acao):([^)]+)\)/gi,
-            (match, txt, _t, act) => {
-                const actionTrimmed = act.trim();
-                // Treat as external button only if it's a valid absolute URL
-                if (isValidUrl(actionTrimmed)) {
-                    buttons.push({ text: txt.trim(), action: actionTrimmed, type: 'external' });
-                } else {
-                    links.push({ text: txt.trim(), action: actionTrimmed });
-                }
-                return '';
-            }
-        );
-            
-        // Process select/list option options
-        cleaned = cleaned.replace(
-            /(?:\[\{|\{\[)list\|([^\|\]]+)(?:\|([^\}\]]+))?)?(?:\}\]|\]\})/gi,
-            (match, label, optionsStr) => {
-                if (optionsStr) {
-                    const options = [];
-                    if (optionsStr) {
-                        const optionPairs = optionsStr.split('|');
-                        optionPairs.forEach(pair => {
-                            const [text, value] = pair.split(':').map(p => p.trim());
-                            if (text && value) {
-                                options.push({ text, action: value });
-                            }
-                        });
-                    }
-                    if (options.length > 0) {
-                        selectOptions.push({ label, options });
-                    }
-                }
-                return '';
-            }
-        );
-
-        // Clean up any remaining quick action syntax
-        cleaned = cleaned
-            .replace(/\[\{[^\]]*?\}\]/g, '')
-            .replace(/\{\[[^\]]*?\]\}/g, '')
-            .trim();
-
-        const hasQuickActions = !!(inputObject || buttons.length || selectOptions.length || links.length);
-        return { text: cleaned, input: inputObject, buttons, selectOptions, links, hasQuickActions };
-    }
-
-    // --- RENDER QUICK ACTIONS (with Validation Logic) ---
-    function renderQuickActions(messageElement, quickActions) {
-        if (!quickActions || !quickActions.hasQuickActions) return;
+ // --- RENDER QUICK ACTIONS (with Validation Logic) ---
+ function renderQuickActions(messageElement, quickActions) {
+ if (!quickActions || !quickActions.hasQuickActions) return;
         
-        // Handle buttons
-        console.log("Rendering quick actions:", quickActions);
+ // Handle buttons
+ console.log("Rendering quick actions:", quickActions);
 
-        const mainContainer = document.createElement('div');
-        mainContainer.style.marginTop = '15px'; // Add space below message text
-        let hasRenderedAction = false;
+ const mainContainer = document.createElement('div');
+ mainContainer.style.marginTop = '15px'; // Add space below message text
+ let hasRenderedAction = false;
 
-        // Render buttons
-        if (quickActions.buttons && quickActions.buttons.length > 0) {
-            const buttonContainer = document.createElement('div');
-            buttonContainer.className = 'quick-action-container';
+ // Render buttons
+ if (quickActions.buttons && quickActions.buttons.length >0) {
+ const buttonContainer = document.createElement('div');
+ buttonContainer.className = 'quick-action-container';
             
-            quickActions.buttons.forEach(button => {
-                const btn = document.createElement('button');
-                btn.className = 'quick-action-button';
-                if (button.type === 'external') btn.className += ' external';
+ quickActions.buttons.forEach(button => {
+ const btn = document.createElement('button');
+ btn.className = 'quick-action-button';
+ if (button.type === 'external') btn.className += ' external';
                 
-                btn.textContent = button.text;
-                btn.dataset.action = button.action;
-                btn.dataset.type = button.type || 'normal';
-                // Add external link icon if needed
-                if (button.type === 'external') {
-                    const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-                    icon.setAttribute('viewBox', '0 0 24 24');
-                    icon.setAttribute('fill', 'none');
-                    icon.setAttribute('stroke', 'currentColor');
-                    icon.setAttribute('stroke-width', '2');
-                    
-                    const path1 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-                    path1.setAttribute('d', 'M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6');
-                    icon.appendChild(path1);
-                btn.textContent = button.text;
-                
-                // Add external icon if needed
-                if (button.type === 'external') {
-                    btn.className += ' external';
-                    
-                    // Create SVG icon for external link
-                    const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-                    icon.setAttribute('viewBox', '0 0 24 24');
-                    icon.setAttribute('width', '14');
-                    icon.setAttribute('height', '14');
-                    
-                    const path1 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-                    path1.setAttribute('d', 'M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6');
-                    icon.appendChild(path1);
-                    
-                    const path2 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-                    path2.setAttribute('d', 'M15 3h6v6');
-                    icon.appendChild(path2);
-                    
-                    const path3 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
-                    path3.setAttribute('d', 'M10 14L21 3');
-                    icon.appendChild(path3);
-                    
-                    btn.appendChild(icon);
-                }
-                
-                buttonContainer.appendChild(btn);
-            });
+ btn.textContent = button.text;
+ btn.dataset.action = button.action;
+ btn.dataset.type = button.type || 'normal';
+ btn.textContent = button.text; // Set text content first
+
+ // Add external link icon if needed
+ if (button.type === 'external') {
+ // btn.className += ' external'; // Class is already added based on initial check
+
+ // Create SVG icon for external link
+ const icon = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+ icon.setAttribute('viewBox', '0 0 24 24');
+ icon.setAttribute('width', '14'); // Use specific dimensions for the small icon
+ icon.setAttribute('height', '14');
+ icon.style.marginLeft = '6px'; // Add some space between text and icon
+ icon.style.verticalAlign = 'middle'; // Align icon nicely with text
+ icon.setAttribute('fill', 'none');
+ icon.setAttribute('stroke', 'currentColor');
+ icon.setAttribute('stroke-width', '2');
+ icon.setAttribute('stroke-linecap', 'round');
+ icon.setAttribute('stroke-linejoin', 'round');
+
+ const path1 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+ path1.setAttribute('d', 'M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6');
+ icon.appendChild(path1);
+
+ const path2 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+ path2.setAttribute('d', 'M15 3h6v6');
+ icon.appendChild(path2);
+
+ const path3 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+ path3.setAttribute('d', 'M10 14L21 3');
+ icon.appendChild(path3);
+
+ btn.appendChild(icon); // Append the correctly created icon
+ }
+
+ buttonContainer.appendChild(btn);
+ });
             
-            mainContainer.appendChild(buttonContainer);
-            hasRenderedAction = true;
-        }
+ mainContainer.appendChild(buttonContainer);
+ hasRenderedAction = true;
+ }
         
-        // Render select options
-        if (quickActions.selectOptions && quickActions.selectOptions.length > 0) {
-            quickActions.selectOptions.forEach(selectOption => {
-                const container = document.createElement('div');
-                container.className = 'quick-action-container';
+ // Render select options
+ if (quickActions.selectOptions && quickActions.selectOptions.length >0) {
+ quickActions.selectOptions.forEach(selectOption => {
+ const container = document.createElement('div');
+ container.className = 'quick-action-container';
                 
-                if (hasRenderedAction) container.style.marginTop = '10px';
+ if (hasRenderedAction) container.style.marginTop = '10px';
                 
-                const select = document.createElement('select');
-                select.className = 'quick-action-select';
+ const select = document.createElement('select');
+ select.className = 'quick-action-select';
                 
-                const defaultOption = document.createElement('option');
-                defaultOption.textContent = selectOption.title || 'Select an option';
-                defaultOption.value = '';
-                defaultOption.disabled = true;
-                defaultOption.selected = true;
-                select.appendChild(defaultOption);
+ const defaultOption = document.createElement('option');
+ defaultOption.textContent = selectOption.title || 'Select an option';
+ defaultOption.value = '';
+ defaultOption.disabled = true;
+ defaultOption.selected = true;
+ select.appendChild(defaultOption);
                 
-                selectOption.options.forEach(option => {
-                    const opt = document.createElement('option');
-                    opt.textContent = option.text;
-                    opt.value = option.action;
-                    opt.dataset.type = option.type || 'normal';
-                    select.appendChild(opt);
-                });
+ selectOption.options.forEach(option => {
+ const opt = document.createElement('option');
+ opt.textContent = option.text;
+ opt.value = option.action;
+ opt.dataset.type = option.type || 'normal';
+ select.appendChild(opt);
+ });
                 
-                container.appendChild(select);
-                mainContainer.appendChild(container);
-                hasRenderedAction = true;
-            });
-        }
+ container.appendChild(select);
+ mainContainer.appendChild(container);
+ hasRenderedAction = true;
+ });
+ }
         
-        // Render links
-        if (quickActions.links && quickActions.links.length > 0) {
-            const linksContainer = document.createElement('div');
-            linksContainer.className = 'quick-action-container';
+ // Render links
+ if (quickActions.links && quickActions.links.length >0) {
+ const linksContainer = document.createElement('div');
+ linksContainer.className = 'quick-action-container';
             
-            if (hasRenderedAction) linksContainer.style.marginTop = '10px';
+ if (hasRenderedAction) linksContainer.style.marginTop = '10px';
             
-            quickActions.links.forEach(link => {
-                const a = document.createElement('a');
-                a.className = 'quick-action-link';
-                a.textContent = link.text;
-                a.href = '#';
-                a.dataset.action = link.action;
-                a.dataset.type = 'link';
+ quickActions.links.forEach(link => {
+ const a = document.createElement('a');
+ a.className = 'quick-action-link';
+ a.textContent = link.text;
+ a.href = '#';
+ a.dataset.action = link.action;
+ a.dataset.type = 'link';
                 
-                linksContainer.appendChild(a);
-            });
+ linksContainer.appendChild(a);
+ });
             
-            mainContainer.appendChild(linksContainer);
-            hasRenderedAction = true;
-        }
+ mainContainer.appendChild(linksContainer);
+ hasRenderedAction = true;
+ }
         
-        // Render input field if present
-        if (quickActions.input) {
-            const inputContainer = document.createElement('div');
-            inputContainer.className = 'quick-action-container';
+ // Render input field if present
+ if (quickActions.input) {
+ const inputContainer = document.createElement('div');
+ inputContainer.className = 'quick-action-container';
             
-            if (hasRenderedAction) inputContainer.style.marginTop = '10px';
+ if (hasRenderedAction) inputContainer.style.marginTop = '10px';
             
-            const input = document.createElement('input');
-            input.type = quickActions.input.type === 'secret' ? 'password' : 'text';
-            input.className = 'quick-action-input';
-            input.placeholder = quickActions.input.placeholder || '';
+ const input = document.createElement('input');
+ input.type = quickActions.input.type === 'secret' ? 'password' : 'text';
+ input.className = 'quick-action-input';
+ input.placeholder = quickActions.input.placeholder || '';
             
-            if (quickActions.input.prefix) {
-                const prefixSpan = document.createElement('span');
-                prefixSpan.className = 'input-prefix';
-                prefixSpan.textContent = quickActions.input.prefix;
-                inputContainer.appendChild(prefixSpan);
-            }
-            inputContainer.appendChild(input);
-            // Add send button
-            const sendBtn = document.createElement('button');
-            sendBtn.className = 'quick-action-input-send';
-            sendBtn.innerHTML = '<svg viewBox="0 0 24 24"><polyline points="22 2 11 13"></polyline><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>';
-            inputContainer.appendChild(sendBtn);
+ if (quickActions.input.prefix) {
+ const prefixSpan = document.createElement('span');
+ prefixSpan.className = 'input-prefix';
+ prefixSpan.textContent = quickActions.input.prefix;
+ inputContainer.appendChild(prefixSpan);
+ }
+ inputContainer.appendChild(input);
+ // Add send button
+ const sendBtn = document.createElement('button');
+ sendBtn.className = 'quick-action-input-send';
+ sendBtn.innerHTML = '<svg viewBox="0 0 24 24"><polyline points="22 2 11 13"></polyline><polygon points="22 2 15 22 13 20 2 11 22 2"></polygon></svg>';
+ inputContainer.appendChild(sendBtn);
             
-            // Add validation check mark
-            const validCheck = document.createElement('span');
-            validCheck.className = 'valid-check';
-            validCheck.innerHTML = '✓';
-            inputContainer.appendChild(validCheck);
+ // Add validation check mark
+ const validCheck = document.createElement('span');
+ validCheck.className = 'valid-check';
+ validCheck.innerHTML = '✓';
+ inputContainer.appendChild(validCheck);
             
-            mainContainer.appendChild(inputContainer);
-        }
+ mainContainer.appendChild(inputContainer);
+ }
         
-        // Add the container to the message element
-        messageElement.appendChild(mainContainer);
-    }
-            // Function to add event listeners to quick action elements
-            function addQuickActionEventListeners(container) {
-                const actionFeedback = document.getElementById('action-feedback');
+ // Add the container to the message element
+ messageElement.appendChild(mainContainer);
+ }
+ // Function to add event listeners to quick action elements
+ function addQuickActionEventListeners(container) {
+ const actionFeedback = document.getElementById('action-feedback');
                 
-                // Button listeners
-                container.querySelectorAll('.quick-action-button').forEach(button => {
-                    button.addEventListener('click', function() {
-                        const action = this.dataset.action;
-                actionFeedback.innerText = `Button "${this.innerText}" clicked, action: ${action}, type: ${this.dataset.type}`;
-            });
-        });
-                // Link listeners
-                container.querySelectorAll('.quick-action-link').forEach(link => {
-                    link.addEventListener('click', function(e) {
-                        e.preventDefault();
-                        const action = this.dataset.action;
-                        actionFeedback.innerText = `Link "${this.innerText}" clicked, action: ${action}`;
-                    });
-                });
+ // Button listeners
+ container.querySelectorAll('.quick-action-button').forEach(button => {
+ button.addEventListener('click', function() {
+ const action = this.dataset.action;
+ actionFeedback.innerText = `Button "${this.innerText}" clicked, action: ${action}, type: ${this.dataset.type}`;
+ });
+ });
+ // Link listeners
+ container.querySelectorAll('.quick-action-link').forEach(link => {
+ link.addEventListener('click', function(e) {
+ e.preventDefault();
+ const action = this.dataset.action;
+ actionFeedback.innerText = `Link "${this.innerText}" clicked, action: ${action}`;
+ });
+ });
                 
-                // Select listeners
-                container.querySelectorAll('.quick-action-select').forEach(select => {
-                    select.addEventListener('change', function() {
-                        const action = this.value;
-                const text = this.options[this.selectedIndex].text;
-                actionFeedback.innerText = `Select option "${text}" chosen, action: ${action}`;
-            });
-        });
-                // Input validation and submission
-                container.querySelectorAll('.quick-action-input').forEach(input => {
-                    const sendBtn = input.parentNode.querySelector('.quick-action-input-send');
-                    const validCheck = input.parentNode.querySelector('.valid-check');
+ // Select listeners
+ container.querySelectorAll('.quick-action-select').forEach(select => {
+ select.addEventListener('change', function() {
+ const action = this.value;
+ const text = this.options[this.selectedIndex].text;
+ actionFeedback.innerText = `Select option "${text}" chosen, action: ${action}`;
+ });
+ });
+ // Input validation and submission
+ container.querySelectorAll('.quick-action-input').forEach(input => {
+ const sendBtn = input.parentNode.querySelector('.quick-action-input-send');
+ const validCheck = input.parentNode.querySelector('.valid-check');
                     
-                    // Validation function
-                    function validateInput() {
-                        const value = input.value.trim();
-                const inputData = container.quickActionData?.input;
+ // Validation function
+ function validateInput() {
+ const value = input.value.trim();
+ const inputData = container.quickActionData?.input; // Get data stored earlier
                 
-                if (!inputData) return false;
+ if (!inputData) return false;
                 
-                // Required check
-                if (inputData.required && !value) {
-                            input.classList.add('invalid');
-                            sendBtn.classList.add('disabled');
-                            validCheck.style.display = 'none';
-                            return false;
-                        }
+ // Required check
+ if (inputData.required && !value) {
+ input.classList.add('invalid');
+ sendBtn.classList.add('disabled');
+ validCheck.style.display = 'none';
+ return false;
+ }
                         
-                        // Validation by type
-                        if (value) {
-                            let isValid = true;
+ // Validation by type
+ if (value) {
+ let isValid = true;
                             
-                            if (inputData.validation === 'email') {
-                                isValid = isValidEmail(value);
-                            } else if (inputData.validation === 'url') {
-                                isValid = isValidUrl(value);
-                            } else if (inputData.validation === 'phone') {
-                                isValid = isValidPhone(value);
-                            }
+ if (inputData.validation === 'email') {
+ isValid = isValidEmail(value);
+ } else if (inputData.validation === 'url') {
+ isValid = isValidUrl(value);
+ } else if (inputData.validation === 'phone') {
+ isValid = isValidPhone(value);
+ }
                             
-                            if (!isValid) {
-                                input.classList.add('invalid');
-                                sendBtn.classList.add('disabled');
-                                validCheck.style.display = 'none';
-                                return false;
-                            }
-                        }
+ if (!isValid) {
+ input.classList.add('invalid');
+ sendBtn.classList.add('disabled');
+ validCheck.style.display = 'none';
+ return false;
+ }
+ }
                         
-                        // If we got here, input is valid
-                        input.classList.remove('invalid');
-                        sendBtn.classList.remove('disabled');
+ // If we got here, input is valid
+ input.classList.remove('invalid');
+ sendBtn.classList.remove('disabled');
                         
-                        // Show checkmark for valid input (except passwords)
-                        if (value && inputData.type !== 'secret') {
-                            validCheck.style.display = 'block';
-                        } else {
-                            validCheck.style.display = 'none';
-                        }
+ // Show checkmark for valid input (except passwords)
+ if (value && inputData.type !== 'secret') {
+ validCheck.style.display = 'block';
+ } else {
+ validCheck.style.display = 'none';
+ }
                         
-                        return true;
-                    }
+ return true;
+ }
                     
-                    // Add validation events
-                    input.addEventListener('input', validateInput);
-                    input.addEventListener('blur', validateInput);
+ // Add validation events
+ input.addEventListener('input', validateInput);
+ input.addEventListener('blur', validateInput);
                     
-                    // Add send button event
-                    sendBtn.addEventListener('click', function() {
-                        if (validateInput()) {
-                            const value = input.value.trim();
-                            actionFeedback.innerText = `Input submitted: "${value}"`;
-                    // In a real implementation, this would send the value to the server
-                        }
-                    });
+ // Add send button event
+ sendBtn.addEventListener('click', function() {
+ if (validateInput()) {
+ const value = input.value.trim();
+ actionFeedback.innerText = `Input submitted: "${value}"`;
+ // In a real implementation, this would send the value to the server
+ }
+ });
                     
-                    // Add enter key event
-                    input.addEventListener('keypress', function(e) {
-                        if (e.key === 'Enter') {
-                    if (validateInput()) {
-                        const value = input.value.trim();
-                                actionFeedback.innerText = `Input submitted: "${value}"`;
-                            }
-                        }
-                    });
-                });
-            }
+ // Add enter key event
+ input.addEventListener('keypress', function(e) {
+ if (e.key === 'Enter') {
+ if (validateInput()) {
+ const value = input.value.trim();
+ actionFeedback.innerText = `Input submitted: "${value}"`;
+ }
+ }
+ });
+ });
+ }
             
-    // Simple function to render text content
-    function renderTextContent(text) {
-        // Check if it's an image URL
-        if (isValidUrl(text) && /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(text)) {
-            const img = document.createElement('img');
-            img.src = text;
-            img.style.maxWidth = '100%';
-            img.style.borderRadius = '8px';
-            return img;
-        }
+ // Simple function to render text content
+ function renderTextContent(text) {
+ // Check if it's an image URL
+ if (isValidUrl(text) && /\.(jpg|jpeg|png|gif|webp|svg)$/i.test(text)) {
+ const img = document.createElement('img');
+ img.src = text;
+ img.style.maxWidth = '100%';
+ img.style.borderRadius = '8px';
+ return img;
+ }
         
-        // Otherwise, just set as text
-        const textNode = document.createTextNode(text);
-        return textNode;
-    }
-    </script>
+ // Otherwise, just set as text
+ const textNode = document.createTextNode(text);
+ return textNode;
+ }
+ // --- MOVED FUNCTIONS END ---
 
-    <!-- Main Test Page Script -->
-    <script>
-        document.addEventListener('DOMContentLoaded', () => {
-            console.log('DOM loaded, setting up test page...');
+ document.addEventListener('DOMContentLoaded', () => {
+ console.log('DOM loaded, setting up test page...');
           
-            const templateSelect = document.getElementById('template-select');
-            const templateTextarea = document.getElementById('template-textarea');
-            const renderedOutput = document.getElementById('rendered-output');
-            const actionFeedback = document.getElementById('action-feedback');
+ const templateSelect = document.getElementById('template-select');
+ const templateTextarea = document.getElementById('template-textarea');
+ const renderedOutput = document.getElementById('rendered-output');
+ const actionFeedback = document.getElementById('action-feedback');
             
-            // Define templates
-            const templates = {
-                button1: 'Here is a button: [{button|Click Me|button_payload}]',
-                input_email_req: 'Enter email: [{input|your@email.com|required|email}]',
-                input_email_opt: 'Enter email (optional): [{input|your@email.com|email}]',
-                input_phone_req: 'Enter phone: [{input|e.g., +1 555 1234|required|phone}]',
-                input_url_opt: 'Enter website (optional): [{input|https://example.com|url}]',
-                input_secret_req: 'Enter password: [{secret|Password|required}]',
-                list1: 'Please choose: [{list|Select a fruit|Apple:apple_value|Banana:banana_value|Orange:orange_value}]',
-                multipleButtons: 'Actions: [Google](action:https://google.com) [{button|Internal Action|payload_1}] [Another](action:internal_action)',
-                image: 'Look: https://www.easygifanimator.net/images/samples/video-to-gif-sample.gif',
-                markdown: '# Title\n**Bold** *Italic* [Link](https://example.com)\n1. One\n2. Two',
-                all_actions: 'Text.\nSelect: [{list|Options|Opt 1:opt1|Opt 2:opt2}]\nClick: [{button|Btn 1|btn1}] [External](action:https://example.com)\nEnter email: [{input|Email|required|email}]',
-                only_input_req: '[{input|Required Value|required}]',
-                only_input_opt: '[{input|Optional Value}]'
-            };
+ // Define templates
+ const templates = {
+ button1: 'Here is a button: [{button|Click Me|button_payload}]',
+ input_email_req: 'Enter email: [{input|your@email.com|required|email}]',
+ input_email_opt: 'Enter email (optional): [{input|your@email.com|email}]',
+ input_phone_req: 'Enter phone: [{input|e.g., +1 555 1234|required|phone}]',
+ input_url_opt: 'Enter website (optional): [{input|https://example.com|url}]',
+ input_secret_req: 'Enter password: [{secret|Password|required}]',
+ list1: 'Please choose: [{list|Select a fruit|Apple:apple_value|Banana:banana_value|Orange:orange_value}]',
+ multipleButtons: 'Actions: [Google](action:https://google.com) [{button|Internal Action|payload_1}] [Another](action:internal_action)',
+ image: 'Look: https://www.easygifanimator.net/images/samples/video-to-gif-sample.gif',
+ markdown: '# Title\n**Bold** *Italic* [Link](https://example.com)\n1. One\n2. Two',
+ all_actions: 'Text.\nSelect: [{list|Options|Opt1:opt1|Opt2:opt2}]\nClick: [{button|Btn1|btn1}] [External](action:https://example.com)\nEnter email: [{input|Email|required|email}]',
+ only_input_req: '[{input|Required Value|required}]',
+ only_input_opt: '[{input|Optional Value}]'
+ };
 
-            // Function to render the template
-            function renderTemplate() {
-                const messageText = templateTextarea.value;
-                renderedOutput.innerHTML = ''; // Clear previous output
+ // Function to render the template
+ function renderTemplate() {
+ const messageText = templateTextarea.value;
+ renderedOutput.innerHTML = ''; // Clear previous output
 
-                // Create a chat message element
-                const chatMessageDiv = document.createElement('div');
-                chatMessageDiv.className = 'chat-message';
+ // Create a chat message element
+ const chatMessageDiv = document.createElement('div');
+ chatMessageDiv.className = 'chat-message';
 
-                // Process the message for quick actions
-                const quickActions = processQuickActions(messageText);
+ // Process the message for quick actions
+ const quickActions = processQuickActions(messageText);
                 
-                // Set the text content
-                const textElement = document.createElement('div');
-                textElement.textContent = quickActions.text;
-                chatMessageDiv.appendChild(textElement);
+ // Set the text content
+ const textElement = document.createElement('div');
+ textElement.textContent = quickActions.text;
+ chatMessageDiv.appendChild(textElement);
                 
-                // Store quick action data for validation
-                chatMessageDiv.quickActionData = quickActions;
+ // Store quick action data for validation
+ chatMessageDiv.quickActionData = quickActions;
                 
-                // Add quick actions if any
-                if (quickActions.hasQuickActions) {
-                    renderQuickActions(chatMessageDiv, quickActions);
-                }
+ // Add quick actions if any
+ if (quickActions.hasQuickActions) {
+ renderQuickActions(chatMessageDiv, quickActions);
+ }
                 
-                console.log("Processing message:", messageText);
+ console.log("Processing message:", messageText);
                 
-                // Add to the output
-                renderedOutput.appendChild(chatMessageDiv);
+ // Add to the output
+ renderedOutput.appendChild(chatMessageDiv);
                 
-                // Add event listeners to the rendered elements
-                addQuickActionEventListeners(chatMessageDiv);
+ // Add event listeners to the rendered elements
+ addQuickActionEventListeners(chatMessageDiv);
                 
-                console.log("Render complete!");
-            }
+ console.log("Render complete!");
+ }
             
-            // Event listener for template selection
-            templateSelect.addEventListener('change', () => {
-                const selectedTemplate = templateSelect.value;
-                templateTextarea.value = templates[selectedTemplate] || '';
-                renderTemplate(); // Render immediately on change
-            });
+ // Event listener for template selection
+ templateSelect.addEventListener('change', () => {
+ const selectedTemplate = templateSelect.value;
+ templateTextarea.value = templates[selectedTemplate] || '';
+ renderTemplate(); // Render immediately on change
+ });
             
-            // Event listener for textarea changes
-            templateTextarea.addEventListener('input', renderTemplate);
+ // Event listener for textarea changes
+ templateTextarea.addEventListener('input', renderTemplate);
             
-            // Function to add event listeners to quick action elements
-            function addQuickActionEventListeners(container) {
-                const actionFeedback = document.getElementById('action-feedback');
-                
-                // Button listeners
-                container.querySelectorAll('.quick-action-button').forEach(button => {
-                    button.addEventListener('click', function() {
-                        const action = this.dataset.action;
-                        const type = this.dataset.type || 'normal';
-                        actionFeedback.innerText = `Button "${this.innerText}" clicked, action: ${action}, type: ${type}`;
-                        console.log("Button clicked:", { text: this.innerText, action, type });
-                        
-                        if (type === 'external' && isValidUrl(action)) {
-                            actionFeedback.innerText += ' (Would open in new tab)';
-                        }
-                    });
-                });
-                
-                // Link listeners
-                container.querySelectorAll('.quick-action-link').forEach(link => {
-                    link.addEventListener('click', function(e) {
-                        e.preventDefault();
-                        const action = this.dataset.action;
-                        actionFeedback.innerText = `Link "${this.innerText}" clicked, action: ${action}`;
-                        console.log("Link clicked:", { text: this.innerText, action });
-                    });
-                });
-                
-                // Select listeners
-                container.querySelectorAll('.quick-action-select').forEach(select => {
-                    select.addEventListener('change', function() {
-                        const selectedOption = this.options[this.selectedIndex];
-                        if (!selectedOption || this.value === '') return; // Ignore default selection
-                        
-                        const action = this.value;
-                        const text = selectedOption.text;
-                        const type = selectedOption.dataset.type || 'normal';
-                        
-                        actionFeedback.innerText = `Select option "${text}" chosen, action: ${action}, type: ${type}`;
-                        console.log("Select changed:", { text, action, type });
-                        
-                        if (type === 'external' && isValidUrl(action)) {
-                            actionFeedback.innerText += ' (Would open in new tab)';
-                        }
-                    });
-                });
-                
-                // Input validation and submission
-                container.querySelectorAll('.quick-action-input').forEach(input => {
-                    const sendBtn = input.parentNode.querySelector('.quick-action-input-send');
-                    const validCheck = input.parentNode.querySelector('.valid-check');
-                    
-                    if (!sendBtn || !validCheck) return;
-                    
-                    // Get input data from the quickActions object
-                    const quickActions = processQuickActions(templateTextarea.value);
-                    const inputData = quickActions.input;
-                    
-                    if (!inputData) return;
-                    
-                    // Set data attributes for validation
-                    input.dataset.validation = inputData.validation;
-                    if (inputData.required) input.setAttribute('required', 'required');
-                    
-                    // Validation function
-                    function validateInput() {
-                        const value = input.value.trim();
-                        
-                        // Required check
-                        if (inputData.required && !value) {
-                            input.classList.add('invalid');
-                            sendBtn.classList.add('disabled');
-                            validCheck.style.display = 'none';
-                            return false;
-                        }
-                        
-                        // Validation by type
-                        if (value) {
-                            let isValid = true;
-                            
-                            if (inputData.validation === 'email') {
-                                isValid = isValidEmail(value);
-                            } else if (inputData.validation === 'url') {
-                                isValid = isValidUrl(value);
-                            } else if (inputData.validation === 'phone') {
-                                isValid = isValidPhone(value);
-                            }
-                            
-                            if (!isValid) {
-                                input.classList.add('invalid');
-                                sendBtn.classList.add('disabled');
-                                validCheck.style.display = 'none';
-                                return false;
-                            }
-                        }
-                        
-                        // If we got here, input is valid
-                        input.classList.remove('invalid');
-                        sendBtn.classList.remove('disabled');
-                        
-                        // Show checkmark for valid input (except passwords)
-                        if (value && inputData.type !== 'secret') {
-                            validCheck.style.display = 'block';
-                        } else {
-                            validCheck.style.display = 'none';
-                        }
-                        
-                        return true;
-                    }
-                    
-                    // Add validation events
-                    input.addEventListener('input', validateInput);
-                    input.addEventListener('blur', validateInput);
-                    
-                    // Add send button event
-                    sendBtn.addEventListener('click', function() {
-                        if (validateInput()) {
-                            const value = input.value.trim();
-                            actionFeedback.innerText = `Input submitted: "${value}"`;
-                            console.log("Input submitted:", { value, validation: inputData.validation, required: inputData.required });
-                        } else {
-                            console.log("Submit prevented due to invalid input");
-                        }
-                    });
-                    
-                    // Add enter key event
-                    input.addEventListener('keypress', function(e) {
-                        if (e.key === 'Enter') {
-                            e.preventDefault();
-                            if (validateInput()) {
-                                const value = input.value.trim();
-                                actionFeedback.innerText = `Input submitted: "${value}"`;
-                                console.log("Input submitted (via Enter):", { value });
-                            }
-                        }
-                    });
-                    
-                    // Initial validation
-                    validateInput();
-                });
-            }
+ // Initial render if there's a default template
+ if (templateTextarea.value) {
+ renderTemplate();
+ }
             
-            // Event listener for template selection
-            templateSelect.addEventListener('change', () => {
-                const selectedTemplate = templateSelect.value;
-                templateTextarea.value = templates[selectedTemplate] || '';
-                renderTemplate(); // Render immediately on change
-            });
-            
-            // Event listener for textarea changes
-            templateTextarea.addEventListener('input', renderTemplate);
-            
-            // Initial render if there's a default template
-            if (templateTextarea.value) {
-                renderTemplate();
-            }
-            
-            // Allow a moment for everything to initialize
-            setTimeout(() => {
-                console.log("Initial render after delay...");
-                renderTemplate();
-            }, 100);            
-            // Initial render if there's a default template
-            if (templateTextarea.value) {
-                renderTemplate();
-            }
-        });
-    </script>
+ // Allow a moment for everything to initialize
+ setTimeout(() => {
+ console.log("Initial render after delay...");
+ renderTemplate();
+ },100);            
+ // NOTE: Removed duplicate addQuickActionEventListeners function definition,
+ // duplicate event listeners, and duplicate initial render calls that were here.
+ });
+ </script>
 </body>
 </html>

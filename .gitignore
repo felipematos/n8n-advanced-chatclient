@@ -4,3 +4,6 @@
 .cursor/*
 .gitignore
 .vscode/*
+.aider*
+.env
+.refact*

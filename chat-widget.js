@@ -18,6 +18,7 @@
     let userLocation = null; // Store detected user location
     let currentQuickAction = null; // Track active quick action
     let debugMode = false; // Central debug flag
+        let phoneListLoadPromise = null; // Promise for country list loading
 
     // Function to clear previous widget instances and styles
     function cleanupExistingWidget() {
@@ -885,997 +886,1027 @@
     styleSheet.textContent = styles;
     document.head.appendChild(styleSheet);
 
-    // --- Proactive Prompt Logic --- 
+    // Check if we're in a test environment
+    const isTestEnvironment = window.location.pathname.includes('test-objects.html');
 
-    // TODO: Define or ensure getProactiveMessage() is available
-    function getProactiveMessage() {
-        // Basic implementation, enhance later if needed
-        // Assumes config is available in this scope
-        return config?.proactivePrompt?.message || "Need help? Chat with us!";
-    }
+    if (!isTestEnvironment) {
+        // Create widget container and other elements as before
+        // --- Proactive Prompt Logic --- 
 
-    function createProactivePrompt() {
-        // Assumes config, proactivePromptElement, widgetContainer, toggleChat, hideProactivePrompt, debug are available
-        if (!config?.proactivePrompt?.enabled || proactivePromptElement || !widgetContainer) return;
-        debug("Creating proactive prompt");
-
-        const promptMessage = getProactiveMessage();
-        proactivePromptElement = document.createElement('div');
-        proactivePromptElement.classList.add('proactive-prompt');
-        if (config.style?.position === 'left') {
-            proactivePromptElement.classList.add('position-left');
+        // TODO: Define or ensure getProactiveMessage() is available
+        function getProactiveMessage() {
+            // Basic implementation, enhance later if needed
+            // Assumes config is available in this scope
+            return config?.proactivePrompt?.message || "Need help? Chat with us!";
         }
 
-        proactivePromptElement.innerHTML = `
-            <div class="prompt-content">${promptMessage}</div>
-            <button class="close-prompt" title="Close" style="color: ${config.style?.secondaryColor || '#0b0f7b'}">×</button>
-        `;
+        function createProactivePrompt() {
+            // Assumes config, proactivePromptElement, widgetContainer, toggleChat, hideProactivePrompt, debug are available
+            if (!config?.proactivePrompt?.enabled || proactivePromptElement || !widgetContainer) return;
+            debug("Creating proactive prompt");
 
-        proactivePromptElement.querySelector('.prompt-content').addEventListener('click', () => {
-            debug("Proactive prompt clicked");
-            toggleChat(true); // Open the chat
-            hideProactivePrompt(); // Hide prompt after clicking
-        });
-
-        proactivePromptElement.querySelector('.close-prompt').addEventListener('click', (e) => {
-            e.stopPropagation(); // Prevent chat from opening
-            debug("Proactive prompt close button clicked");
-            hideProactivePrompt();
-        });
-
-        widgetContainer.appendChild(proactivePromptElement);
-        setTimeout(() => proactivePromptElement.classList.add('show'), 50); 
-    }
-
-    function hideProactivePrompt() {
-        // Assumes proactivePromptElement, proactivePromptTimeout, debug are available
-        if (proactivePromptElement) {
-            debug("Hiding proactive prompt");
-            proactivePromptElement.classList.remove('show');
-            setTimeout(() => {
-                proactivePromptElement?.remove(); // Add null check
-                proactivePromptElement = null;
-            }, 300); // Match animation duration
-        }
-        if (proactivePromptTimeout) {
-            clearTimeout(proactivePromptTimeout);
-            proactivePromptTimeout = null;
-        }
-    }
-
-    function scheduleProactivePrompt() {
-        // Assumes config, proactivePromptTimeout, isChatOpen, createProactivePrompt, debug are available
-        if (proactivePromptTimeout) {
-            clearTimeout(proactivePromptTimeout);
-        }
-        // Use optional chaining for safer access
-        const delay = config?.proactivePrompt?.delay ?? 5000;
-        debug(`Scheduling proactive prompt with delay: ${delay}ms`);
-        proactivePromptTimeout = setTimeout(() => {
-            if (!isChatOpen) {
-                createProactivePrompt();
+            const promptMessage = getProactiveMessage();
+            proactivePromptElement = document.createElement('div');
+            proactivePromptElement.classList.add('proactive-prompt');
+            if (config.style?.position === 'left') {
+                proactivePromptElement.classList.add('position-left');
             }
-        }, delay);
-    }
 
-    // --- Proactive Prompt Logic --- 
+            proactivePromptElement.innerHTML = `
+                <div class="prompt-content">${promptMessage}</div>
+                <button class="close-prompt" title="Close" style="color: ${config.style?.secondaryColor || '#0b0f7b'}">×</button>
+            `;
 
-    // TODO: Define or ensure getProactiveMessage() is available
-    function getProactiveMessage() {
-        // Basic implementation, enhance later if needed
-        // Assumes config is available in this scope
-        return config?.proactivePrompt?.message || "Need help? Chat with us!";
-    }
+            proactivePromptElement.querySelector('.prompt-content').addEventListener('click', () => {
+                debug("Proactive prompt clicked");
+                toggleChat(true); // Open the chat
+                hideProactivePrompt(); // Hide prompt after clicking
+            });
 
-    function createProactivePrompt() {
-        // Assumes config, proactivePromptElement, widgetContainer, toggleChat, hideProactivePrompt, debug are available
-        if (!config?.proactivePrompt?.enabled || proactivePromptElement || !widgetContainer) return;
-        debug("Creating proactive prompt");
+            proactivePromptElement.querySelector('.close-prompt').addEventListener('click', (e) => {
+                e.stopPropagation(); // Prevent chat from opening
+                debug("Proactive prompt close button clicked");
+                hideProactivePrompt();
+            });
 
-        const promptMessage = getProactiveMessage();
-        proactivePromptElement = document.createElement('div');
-        proactivePromptElement.classList.add('proactive-prompt');
-        if (config.style?.position === 'left') {
-            proactivePromptElement.classList.add('position-left');
+            widgetContainer.appendChild(proactivePromptElement);
+            setTimeout(() => proactivePromptElement.classList.add('show'), 50); 
         }
 
-        proactivePromptElement.innerHTML = `
-            <div class="prompt-content">${promptMessage}</div>
-            <button class="close-prompt" title="Close" style="color: ${config.style?.secondaryColor || '#0b0f7b'}">×</button>
-        `;
-
-        proactivePromptElement.querySelector('.prompt-content').addEventListener('click', () => {
-            debug("Proactive prompt clicked");
-            toggleChat(true); // Open the chat
-            hideProactivePrompt(); // Hide prompt after clicking
-        });
-
-        proactivePromptElement.querySelector('.close-prompt').addEventListener('click', (e) => {
-            e.stopPropagation(); // Prevent chat from opening
-            debug("Proactive prompt close button clicked");
-            hideProactivePrompt();
-        });
-
-        widgetContainer.appendChild(proactivePromptElement);
-        setTimeout(() => proactivePromptElement.classList.add('show'), 50); 
-    }
-
-    function hideProactivePrompt() {
-        // Assumes proactivePromptElement, proactivePromptTimeout, debug are available
-        if (proactivePromptElement) {
-            debug("Hiding proactive prompt");
-            proactivePromptElement.classList.remove('show');
-            setTimeout(() => {
-                proactivePromptElement?.remove(); // Add null check
-                proactivePromptElement = null;
-            }, 300); // Match animation duration
-        }
-        if (proactivePromptTimeout) {
-            clearTimeout(proactivePromptTimeout);
-            proactivePromptTimeout = null;
-        }
-    }
-
-    function scheduleProactivePrompt() {
-        // Assumes config, proactivePromptTimeout, isChatOpen, createProactivePrompt, debug are available
-        if (proactivePromptTimeout) {
-            clearTimeout(proactivePromptTimeout);
-        }
-        // Use optional chaining for safer access
-        const delay = config?.proactivePrompt?.delay ?? 5000;
-        debug(`Scheduling proactive prompt with delay: ${delay}ms`);
-        proactivePromptTimeout = setTimeout(() => {
-            if (!isChatOpen) {
-                createProactivePrompt();
+        function hideProactivePrompt() {
+            // Assumes proactivePromptElement, proactivePromptTimeout, debug are available
+            if (proactivePromptElement) {
+                debug("Hiding proactive prompt");
+                proactivePromptElement.classList.remove('show');
+                setTimeout(() => {
+                    proactivePromptElement?.remove(); // Add null check
+                    proactivePromptElement = null;
+                }, 300); // Match animation duration
             }
-        }, delay);
-    }
+            if (proactivePromptTimeout) {
+                clearTimeout(proactivePromptTimeout);
+                proactivePromptTimeout = null;
+            }
+        }
 
-    // --- RESTORED: Toggle Chat Function --- 
-    async function toggleChat(forceOpen = null) {
-        isChatOpen = (forceOpen !== null) ? forceOpen : !isChatOpen;
-        debug(`Toggling chat. New state: ${isChatOpen ? 'Open' : 'Closed'}`);
+        function scheduleProactivePrompt() {
+            // Assumes config, proactivePromptTimeout, isChatOpen, createProactivePrompt, debug are available
+            if (proactivePromptTimeout) {
+                clearTimeout(proactivePromptTimeout);
+            }
+            // Use optional chaining for safer access
+            const delay = config?.proactivePrompt?.delay ?? 5000;
+            debug(`Scheduling proactive prompt with delay: ${delay}ms`);
+            proactivePromptTimeout = setTimeout(() => {
+                if (!isChatOpen) {
+                    createProactivePrompt();
+                }
+            }, delay);
+        }
 
-        if (isChatOpen) {
-            chatContainer.style.display = 'flex'; // Use flex for centering/layout
-            launcherButton.style.display = 'none';
-            // Delay showing the chat content slightly for smoother animation
-            setTimeout(() => {
-                chatContainer.classList.add('visible');
-            }, 10); // Small delay
+        // --- RESTORED: Toggle Chat Function --- 
+        async function toggleChat(forceOpen = null) {
+            isChatOpen = (forceOpen !== null) ? forceOpen : !isChatOpen;
+            debug(`Toggling chat. New state: ${isChatOpen ? 'Open' : 'Closed'}`);
 
-            hideProactivePrompt(); // Hide prompt when opening chat
+            if (isChatOpen) {
+                chatContainer.style.display = 'flex'; // Use flex for centering/layout
+                launcherButton.style.display = 'none';
+                // Delay showing the chat content slightly for smoother animation
+                setTimeout(() => {
+                    chatContainer.classList.add('visible');
+                }, 10); // Small delay
 
-            // Determine if we need to show welcome screen or start a conversation
-            let newConv = chatContainer.querySelector('.new-conversation');
-if (config.skipWelcomeScreen) {
-    debug('[PATCH] skipWelcomeScreen is true: forcibly removing welcome screen and starting chat');
-    if (newConv) {
-        newConv.parentNode.removeChild(newConv);
-        newConv = null;
-    }
-    chatInterface.classList.add('active');
-    // Always clear welcome screen remnants
-    if (typeof chatMessages !== 'undefined') chatMessages.innerHTML = '';
-    startNewConversation()
-        .then(() => setTimeout(() => textarea.focus(), 100))
-        .catch((error) => {
-            console.error("[DEBUG] startNewConversation().catch block triggered. Error object:", error); // Added log
-            debug('Erro ao iniciar conversa (skip welcome):', error, true);
-            if (typeof config.onError === 'function') config.onError(error);
-            setTimeout(() => textarea.focus(), 100);
-        });
-} else if (!isFirstTime) {
-    if (!chatInterface.classList.contains('active')) {
-        if (newConv) newConv.style.display = 'none';
+                hideProactivePrompt(); // Hide prompt when opening chat
+
+                // Determine if we need to show welcome screen or start a conversation
+                let newConv = chatContainer.querySelector('.new-conversation');
+    if (config.skipWelcomeScreen) {
+        debug('[PATCH] skipWelcomeScreen is true: forcibly removing welcome screen and starting chat');
+        if (newConv) {
+            newConv.parentNode.removeChild(newConv);
+            newConv = null;
+        }
         chatInterface.classList.add('active');
-    }
-    setTimeout(() => textarea.focus(), 100);
-} else {
-    if (newConv) newConv.style.display = 'block';
-    chatInterface.classList.remove('active');
-    if (messages.length === 0) {
-        chatMessages.innerHTML = '';
-    }
-}
-        } else {
-            chatContainer.classList.remove('visible');
-            // Wait for animation to finish before hiding and showing launcher
-            setTimeout(() => {
-                chatContainer.style.display = 'none';
-                launcherButton.style.display = 'flex'; // Use flex for centering icon
-                launcherButton.classList.add('visible'); // Ensure launcher is visible
-                scheduleProactivePrompt(); // Schedule prompt when closing chat
-            }, 300); // Match CSS transition duration
+        // Always clear welcome screen remnants
+        if (typeof chatMessages !== 'undefined') chatMessages.innerHTML = '';
+        startNewConversation()
+            .then(() => setTimeout(() => textarea.focus(), 100))
+            .catch((error) => {
+                console.error("[DEBUG] startNewConversation().catch block triggered. Error object:", error); // Added log
+                debug('Erro ao iniciar conversa (skip welcome):', error, true);
+                if (typeof config.onError === 'function') config.onError(error);
+                setTimeout(() => textarea.focus(), 100);
+            });
+    } else if (!isFirstTime) {
+        if (!chatInterface.classList.contains('active')) {
+            if (newConv) newConv.style.display = 'none';
+            chatInterface.classList.add('active');
         }
-        // Mark as visited after first interaction (open/close)
-        if (isFirstTime) {
-            localStorage.setItem('n8nChatVisited', 'true');
-            isFirstTime = false; 
+        setTimeout(() => textarea.focus(), 100);
+    } else {
+        if (newConv) newConv.style.display = 'block';
+        chatInterface.classList.remove('active');
+        if (messages.length === 0) {
+            chatMessages.innerHTML = '';
         }
     }
-
-    // Load country list from JSON
-    async function loadPhoneCountryList() {
-        try {
-            const response = await fetch(countriesFilePath);
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
-            }
-            phoneCountryList = await response.json();
-            debug('Successfully loaded phone country list from', countriesFilePath);
-        } catch (error) {
-            console.error('Error loading phone country list:', error);
-            // Use a minimal fallback list or handle the error appropriately
-            phoneCountryList = [
-                { iso: 'US', dialCode: '1' },
-                { iso: 'GB', dialCode: '44' },
-                { iso: 'BR', dialCode: '55' },
-            ];
-            debug('Failed to load phone country list, using fallback.', phoneCountryList, true);
-        }
-    }
-
-    // Initial load of countries, placed correctly within IIFE scope
-    loadPhoneCountryList().then(() => {
-        debug("Country list loaded, ready for init.");
-        // The list is now loaded and ready for when initN8nChatWidget is called.
-    }).catch(error => {
-        console.error("[CRITICAL] Failed to load phone country list:", error);
-        // Widget might still function but phone input pre-selection will fail.
-    });
-
-    // --- RESTORED: Minimal Initialization Function --- 
-    function initN8nChatWidget(userConfig) {
-        // TODO: Restore config merge, translations, theme application
-        // config = deepMerge(defaultConfig, userConfig);
-        // loadTranslations(config.language);
-        // applyTheme(config.style);
-
-        // TODO: Call createWidgetStructure() here - Assuming it's defined/restored
-        // createWidgetStructure(); 
-
-        // Find CORE elements needed for basic operation
-        widgetContainer = document.getElementById('n8n-chat-widget-container'); // Assume ID
-        if (!widgetContainer) {
-             console.error("CRITICAL: Widget container (#n8n-chat-widget-container) not found.");
-             return;
-        }
-        chatContainer = widgetContainer.querySelector('.chat-container');
-        chatInterface = widgetContainer.querySelector('.chat-interface');
-        messagesContainer = widgetContainer.querySelector('.messages-container');
-        textarea = widgetContainer.querySelector('textarea');
-        newChatBtn = widgetContainer.querySelector('.new-chat-btn'); 
-
-        // Find launcher button (assuming it's created elsewhere or by createWidgetStructure)
-        launcherButton = document.getElementById('n8n-chat-launcher');
-        if (!launcherButton) {
-             // Maybe try creating it as fallback? Or assume createWidgetStructure handles it.
-             console.warn("Launcher button (#n8n-chat-launcher) not found initially.");
-        }
-        // Find close button
-        closeButton = widgetContainer.querySelector('.header-button.close-button'); // Assuming class
-        if (!closeButton) {
-             console.warn("Close button (.header-button.close-button) not found initially.");
-        }
-
-        // --- Attach MINIMAL Event Listeners --- 
-        if (launcherButton) {
-            launcherButton.addEventListener('click', () => toggleChat());
-        } else {
-             debug("Launcher button not found, cannot attach listener.");
-        }
-        if (closeButton) {
-            closeButton.addEventListener('click', () => toggleChat(false));
-        } else {
-             debug("Close button not found, cannot attach listener.");
-        }
-
-        // TODO: Restore other listeners (newChatBtn, send, textarea, etc.)
-        // TODO: Restore initial setup (startOpen, proactive prompt, font size etc.)
-
-        debug("Minimal initN8nChatWidget completed.");
-    }
-
-    // Define default messages *before* defaultConfig uses them
-    const defaultProactiveMessages = {
-        en: "Chat with our AI now and resolve all your doubts!",
-        pt: "Converse com nossa IA agora e resolva todas as suas dúvidas!",
-        es: "¡Chatea con nuestra IA ahora y resuelve todas tus dudas!",
-        ar: "تحدث مع الذكاء الاصطناعي الخاص بنا الآن وحل جميع شكوكك!"
-    };
-
-    const defaultGreetingMessages = {
-        en: "Hi! How can I help you today?",
-        pt: "Olá! Como posso ajudar você hoje?",
-        es: "¡Hola! ¿Cómo puedo ayudarte hoy?",
-        ar: "مرحباً! كيف يمكنني مساعدتك اليوم؟"
-    };
-
-    // Default configuration
-    const defaultConfig = {
-        webhook: {
-            url: null,
-            route: 'general'
-        },
-        branding: {
-            logo: '',
-            name: '',
-            welcomeText: '', // Now an object in config, but empty here
-            responseTimeText: '', // Now an object in config, but empty here
-            poweredBy: {
-                text: '',
-                link: ''
-            }
-        },
-        style: {
-            primaryColor: '#080A56',
-            secondaryColor: '#0b0f7b',
-            position: 'right',
-            backgroundColor: '#ffffff',
-            fontColor: '#333333',
-            fontSize: 1, // Default font size (1: sm, 2: md, 3: lg, 4: xl)
-        },
-        debug: false,
-        detectLocation: true, // Default for location detection
-        metadata: {}, // Default empty metadata object
-        proactivePrompt: {
-            enabled: false,
-            delay: 10000,
-            message: defaultProactiveMessages // Use the predefined object
-        },
-        skipWelcomeScreen: false,
-        greetingMessage: defaultGreetingMessages, // Use the predefined object
-        expandedView: false, // Default expanded view state
-        languageTexts: {} // Initialize as empty, will be populated below
-    };
-
-    // Merge user config with defaults
-    config = window.ChatWidgetConfig ?
-        {
-            webhook: { ...defaultConfig.webhook, ...window.ChatWidgetConfig.webhook },
-            branding: { ...defaultConfig.branding, ...window.ChatWidgetConfig.branding },
-            style: { ...defaultConfig.style, ...window.ChatWidgetConfig.style },
-            proactivePrompt: { ...defaultConfig.proactivePrompt, ...(window.ChatWidgetConfig.proactivePrompt || {}) },
-            skipWelcomeScreen: typeof window.ChatWidgetConfig.skipWelcomeScreen === 'boolean' ? window.ChatWidgetConfig.skipWelcomeScreen : defaultConfig.skipWelcomeScreen,
-            greetingMessage: { ...defaultConfig.greetingMessage, ...(window.ChatWidgetConfig.greetingMessage || {}) },
-            expandedView: window.ChatWidgetConfig.expandedView || defaultConfig.expandedView,
-            languageTexts: { ...defaultConfig.languageTexts, ...(window.ChatWidgetConfig.languageTexts || {}) }, // Merge languageTexts as well
-            metadata: { ...defaultConfig.metadata, ...(window.ChatWidgetConfig.metadata || {}) }, // Merge metadata
-            detectLocation: typeof window.ChatWidgetConfig.detectLocation === 'boolean' ? window.ChatWidgetConfig.detectLocation : defaultConfig.detectLocation // Merge detectLocation
-        } : defaultConfig;
-
-    // Calculate effective language AFTER merging config, detect from URL path
-    const pathLangMatch = window.location.pathname.match(/\/([a-z]{2}(?:[-_][a-z]{2})?)(?:\/|$)/i);
-    const urlLang = pathLangMatch ? pathLangMatch[1].toLowerCase() : null;
-    const finalUserLangSource = config.metadata?.language || urlLang || navigator.language || 'en';
-    const finalLangMatch = finalUserLangSource.match(/^([a-z]{2})(?:[-_]([a-z]{2}))?/i);
-    // Use the full match (e.g., 'pt_br') if available, otherwise just the base ('pt'), default to 'en'
-    const detectedLang = finalLangMatch ? (finalLangMatch[2] ? finalLangMatch[0].toLowerCase() : finalLangMatch[1].toLowerCase()) : 'en'; 
-    const baseLang = finalLangMatch ? finalLangMatch[1].toLowerCase() : 'en'; // Always the 2-letter code ('pt', 'en')
-
-    // Mensagens traduzidas padrão (usadas como último fallback dentro de getText)
-    const defaultLanguageTexts = {
-        en: {
-            connecting: "Hi! Connecting you...",
-            fallback: "Hi! How can I help?",
-            processing: "Thank you for your message. We're processing it and will respond shortly.",
-            error: "Thank you for your message. How can I help you further?",
-            inputPlaceholder: "Type your message...",
-            startChat: "Start chat",
-            defaultResponseTime: "We typically respond right away",
-            welcomeText: "Hi 👋, how can we help?"
-        },
-        pt: {
-            connecting: "Olá! Estamos conectando você...",
-            fallback: "Olá! Como posso ajudar?",
-            processing: "Obrigado pela sua mensagem. Estamos processando e responderemos em breve.",
-            error: "Obrigado pela sua mensagem. Como posso ajudar mais?",
-            inputPlaceholder: "Digite sua mensagem...",
-            startChat: "Iniciar conversa",
-            defaultResponseTime: "Normalmente respondemos imediatamente",
-            welcomeText: "Oi 👋, como podemos ajudar?"
-        },
-        es: {
-            connecting: "¡Hola! Conectándote...",
-            fallback: "¡Hola! ¿Cómo puedo ayudar?",
-            processing: "Gracias por tu mensaje. Lo estamos procesando y responderemos pronto.",
-            error: "Gracias por tu mensaje. ¿Cómo puedo ayudarte más?",
-            inputPlaceholder: "Escribe tu mensaje...",
-            startChat: "Iniciar conversación",
-            defaultResponseTime: "Solemos responder de inmediato",
-            welcomeText: "¡Hola 👋! ¿Cómo podemos ayudar?"
-        },
-        ar: {
-            connecting: "مرحباً! جاري توصيلك...",
-            fallback: "مرحباً! كيف يمكنني المساعدة؟",
-            processing: "شكراً لرسالتك. نحن نعالجها وسنرد قريباً.",
-            error: "شكراً لرسالتك. كيف يمكنني المساعدة أكثر؟",
-            inputPlaceholder: "اكتب رسالتك...",
-            startChat: "بدء المحادثة",
-            defaultResponseTime: "عادة ما نرد على الفور",
-            welcomeText: "مرحباً 👋! كيف يمكننا المساعدة؟"
-        }
-    };
-     // Ensure defaultConfig.languageTexts points to the default translations
-     // Assign it here AFTER defaultConfig is fully defined.
-     defaultConfig.languageTexts = defaultLanguageTexts;
-
-    // --- Helper Function to Get Text from languageTexts (Simplified) ---
-    function getText(key, fallbackValue = '') {
-        const userTexts = config.languageTexts;
-        const defaultTexts = defaultConfig.languageTexts; // Assumes defaultConfig.languageTexts is set below
-
-        // Check User Config
-        if (userTexts) {
-            if (userTexts[detectedLang] && userTexts[detectedLang][key] !== undefined) return userTexts[detectedLang][key];
-            if (userTexts[baseLang] && userTexts[baseLang][key] !== undefined) return userTexts[baseLang][key];
-            if (userTexts['en'] && userTexts['en'][key] !== undefined) return userTexts['en'][key];
-        }
-        // Check Default Config
-        if (defaultTexts) {
-             if (defaultTexts[detectedLang] && defaultTexts[detectedLang][key] !== undefined) return defaultTexts[detectedLang][key];
-             if (defaultTexts[baseLang] && defaultTexts[baseLang][key] !== undefined) return defaultTexts[baseLang][key];
-             if (defaultTexts['en'] && defaultTexts['en'][key] !== undefined) return defaultTexts['en'][key];
-        }
-        // Fallback
-        return fallbackValue;
-    }
-
-    // --- DEBUG --- Logar a configuração mesclada
-    debug('Configuração mesclada final:', config);
-    // --- DEBUG --- Logar idiomas detectados
-    debug(`Idioma detectado (completo): ${detectedLang}, Idioma base: ${baseLang}`);
-
-    // Prevent multiple initializations
-    if (window.N8NChatWidgetInitialized) return;
-    window.N8NChatWidgetInitialized = true;
-
-    // Create widget container
-    widgetContainer = document.createElement('div');
-    widgetContainer.className = 'n8n-chat-widget';
-    
-    // Set CSS variables for colors
-    widgetContainer.style.setProperty('--n8n-chat-primary-color', config.style.primaryColor);
-    widgetContainer.style.setProperty('--n8n-chat-secondary-color', config.style.secondaryColor);
-    widgetContainer.style.setProperty('--n8n-chat-background-color', config.style.backgroundColor);
-    widgetContainer.style.setProperty('--n8n-chat-font-color', config.style.fontColor);
-
-    chatContainer = document.createElement('div');
-    chatContainer.className = `chat-container${config.style.position === 'left' ? ' position-left' : ''}`;
-    
-    // Function to get the correct language string from a potentially multi-language object
-    function getBrandingText(brandingField, fallbackKey) {
-        const textSource = config.branding[brandingField];
-        if (typeof textSource === 'string') {
-            return textSource; // Already a simple string
-        } else if (typeof textSource === 'object' && textSource !== null) {
-            // Find the best match: detectedLang -> baseLang -> en
-            return textSource[detectedLang] ?? textSource[baseLang] ?? textSource['en'] ?? getText(fallbackKey, '');
-        } else {
-            // Use getText for fallback if field is missing or not string/object
-            return getText(fallbackKey, '');
-        }
-    }
-    
-    
-    // Criar conteúdo do chat container diretamente
-    let chatContainerHTML = `
-        <div class="brand-header">
-            ${config.branding.logo ? `<img src="${config.branding.logo}" alt="${config.branding.name || 'Chat'}" />` : ''}
-            <span>${config.branding.name || 'Chat'}</span>
-            <div class="header-buttons">
-                <!-- Botão de Tamanho de Fonte -->
-                <button class="header-button font-size-button" title="Alterar Tamanho da Fonte">
-                     <!-- Ícone 'Aa' mais claro -->
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:20px; height:20px;">
-                        <path d="M3.5 15.5L7 9l3.5 6.5"/>
-                        <path d="M14 19L18 5l4 14"/>
-                        <path d="M15.3 15H20.7"/>
-                        <path d="M4.9 13H9.1"/>
-                    </svg>
-                </button>
-                 <!-- Ordem Definitiva: Expandir (esquerda), Fechar (direita) -->
-                 <button class="header-button expand-button" title="Expandir/Contrair">
-                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
-                    </svg>
-                </button>
-                <button class="header-button close-button" title="Fechar">×</button>
-            </div>
-        </div>
-        <div class="chat-interface">
-            <div class="chat-messages"></div>
-            <div class="chat-input">
-                <textarea placeholder="${getText('inputPlaceholder', 'Type your message...')}" rows="1"></textarea>
-                <button>
-                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M22 2L11 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                        <path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
-                    </svg>
-                </button>
-            </div>
-        </div>
-        <div class="new-conversation">
-            <p class="welcome-text">${getBrandingText('welcomeText', 'welcomeText')}</p>
-            <button class="new-chat-btn">
-                <!-- Novo ícone geométrico (ex: quadrado com plus) -->
-                <svg class="message-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-                    <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="2"/>
-                    <line x1="12" y1="8" x2="12" y2="16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                    <line x1="8" y1="12" x2="16" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
-                </svg>
-                ${getText('startChat', 'Start chat')}
-            </button>
-            <p class="response-text">${getBrandingText('responseTimeText', 'defaultResponseTime')}</p>
-        </div>
-    `;
-    
-    chatContainer.innerHTML = chatContainerHTML;
-    
-    const toggleButton = document.createElement('button');
-    toggleButton.className = `chat-toggle${config.style.position === 'left' ? ' position-left' : ''}`;
-    toggleButton.innerHTML = `
-        <!-- Standard chat baloon icon - Size controlled by CSS -->
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>`;
-    
-    widgetContainer.appendChild(chatContainer);
-    widgetContainer.appendChild(toggleButton);
-    document.body.appendChild(widgetContainer);
-
-    newChatBtn = chatContainer.querySelector('.new-chat-btn');
-    chatInterface = chatContainer.querySelector('.chat-interface');
-    messagesContainer = chatContainer.querySelector('.chat-messages');
-    textarea = chatContainer.querySelector('textarea');
-    sendButton = chatContainer.querySelector('.chat-input button');
-
-    function generateUUID() {
-        // Verificar se o método nativo está disponível
-        if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
-            return crypto.randomUUID();
-        }
-        
-        // Fallback para implementação manual de UUID v4
-        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
-            const r = Math.random() * 16 | 0;
-            const v = c === 'x' ? r : (r & 0x3 | 0x8);
-            return v.toString(16);
-        });
-    }
-
-    // Função para controlar logs de depuração
-    function debug(message, data, isError = false) {
-        // Verificar se o modo debug está ativado via configuração local ou global
-        const debugMode = (window.ChatWidgetConfig && window.ChatWidgetConfig.debug === true) || 
-                          (window.n8nChatDebug === true);
-        
-        if (debugMode) {
-            const method = isError ? console.error : console.log;
-            const prefix = '[n8n Chat Widget] ';
-            if (data) {
-                method(prefix + message, data);
             } else {
-                method(prefix + message);
+                chatContainer.classList.remove('visible');
+                // Wait for animation to finish before hiding and showing launcher
+                setTimeout(() => {
+                    chatContainer.style.display = 'none';
+                    launcherButton.style.display = 'flex'; // Use flex for centering icon
+                    launcherButton.classList.add('visible'); // Ensure launcher is visible
+                    scheduleProactivePrompt(); // Schedule prompt when closing chat
+                }, 300); // Match CSS transition duration
+            }
+            // Mark as visited after first interaction (open/close)
+            if (isFirstTime) {
+                localStorage.setItem('n8nChatVisited', 'true');
+                isFirstTime = false; 
             }
         }
-    }
 
-    // Função para verificar se uma string é um JSON válido
-    function isValidJSON(str) {
-        try {
-            JSON.parse(str);
-            return true;
-        } catch (e) {
+        // Load country list from JSON
+        async function loadPhoneCountryList() {
+            try {
+                const response = await fetch(countriesFilePath);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+                const parsedJson = await response.json();
+                phoneCountryList = parsedJson.countries; // Extract the array
+                if (!Array.isArray(phoneCountryList)) {
+                    console.error('Parsed JSON does not contain a valid countries array:', parsedJson);
+                    throw new Error('Invalid country data structure');
+                }
+                debug('Successfully loaded phone country list from', countriesFilePath);
+            } catch (error) {
+                console.error('Error loading phone country list:', error);
+                // Use a minimal fallback list or handle the error appropriately
+                phoneCountryList = [
+                    { iso: 'US', dialCode: '1' },
+                    { iso: 'GB', dialCode: '44' },
+                    { iso: 'BR', dialCode: '55' },
+                ];
+                debug('Failed to load phone country list, using fallback.', phoneCountryList, true);
+                
+            }
+        }
+
+        // Initial load of countries, placed correctly within IIFE scope
+        loadPhoneCountryList().then(() => {
+            debug("Country list loaded, ready for init.");
+            // The list is now loaded and ready for when initN8nChatWidget is called.
+        }).catch(error => {
+            console.error("[CRITICAL] Failed to load phone country list:", error);
+            // Widget might still function but phone input pre-selection will fail.
+        });
+
+        // --- RESTORED: Minimal Initialization Function --- 
+        function initN8nChatWidget(userConfig) {
+            // TODO: Restore config merge, translations, theme application
+            // config = deepMerge(defaultConfig, userConfig);
+            // loadTranslations(config.language);
+            // applyTheme(config.style);
+
+            // TODO: Call createWidgetStructure() here - Assuming it's defined/restored
+            // createWidgetStructure(); 
+
+            // Find CORE elements needed for basic operation
+            widgetContainer = document.getElementById('n8n-chat-widget-container'); // Assume ID
+            if (!widgetContainer) {
+                console.error("CRITICAL: Widget container (#n8n-chat-widget-container) not found.");
+                return;
+            }
+            chatContainer = widgetContainer.querySelector('.chat-container');
+            chatInterface = widgetContainer.querySelector('.chat-interface');
+            messagesContainer = widgetContainer.querySelector('.messages-container');
+            textarea = widgetContainer.querySelector('textarea');
+            newChatBtn = widgetContainer.querySelector('.new-chat-btn'); 
+
+            // Find launcher button (assuming it's created elsewhere or by createWidgetStructure)
+            launcherButton = document.getElementById('n8n-chat-launcher');
+            if (!launcherButton) {
+                // Maybe try creating it as fallback? Or assume createWidgetStructure handles it.
+                console.warn("Launcher button (#n8n-chat-launcher) not found initially.");
+            }
+            // Find close button
+            closeButton = widgetContainer.querySelector('.header-button.close-button'); // Assuming class
+            if (!closeButton) {
+                console.warn("Close button (.header-button.close-button) not found initially.");
+            }
+
+            // --- Attach MINIMAL Event Listeners --- 
+            if (launcherButton) {
+                launcherButton.addEventListener('click', () => toggleChat());
+            } else {
+                debug("Launcher button not found, cannot attach listener.");
+            }
+            if (closeButton) {
+                closeButton.addEventListener('click', () => toggleChat(false));
+            } else {
+                debug("Close button not found, cannot attach listener.");
+            }
+
+            // TODO: Restore other listeners (newChatBtn, send, textarea, etc.)
+            // TODO: Restore initial setup (startOpen, proactive prompt, font size etc.)
+
+            debug("Minimal initN8nChatWidget completed.");
+        }
+
+        // Define default messages *before* defaultConfig uses them
+        const defaultProactiveMessages = {
+            en: "Chat with our AI now and resolve all your doubts!",
+            pt: "Converse com nossa IA agora e resolva todas as suas dúvidas!",
+            es: "¡Chatea con nuestra IA ahora y resuelve todas tus dudas!",
+            ar: "تحدث مع الذكاء الاصطناعي الخاص بنا الآن وحل جميع شكوكك!"
+        };
+
+        const defaultGreetingMessages = {
+            en: "Hi! How can I help you today?",
+            pt: "Olá! Como posso ajudar você hoje?",
+            es: "¡Hola! ¿Cómo puedo ayudarte hoy?",
+            ar: "مرحباً! كيف يمكنني مساعدتك اليوم؟"
+        };
+
+        // Default configuration
+        const defaultConfig = {
+            webhook: {
+                url: null,
+                route: 'general'
+            },
+            branding: {
+                logo: '',
+                name: '',
+                welcomeText: '', // Now an object in config, but empty here
+                responseTimeText: '', // Now an object in config, but empty here
+                poweredBy: {
+                    text: '',
+                    link: ''
+                }
+            },
+            style: {
+                primaryColor: '#080A56',
+                secondaryColor: '#0b0f7b',
+                position: 'right',
+                backgroundColor: '#ffffff',
+                fontColor: '#333333',
+                fontSize: 1, // Default font size (1: sm, 2: md, 3: lg, 4: xl)
+            },
+            debug: false,
+            detectLocation: true, // Default for location detection
+            metadata: {}, // Default empty metadata object
+            proactivePrompt: {
+                enabled: false,
+                delay: 10000,
+                message: defaultProactiveMessages // Use the predefined object
+            },
+            skipWelcomeScreen: false,
+            greetingMessage: defaultGreetingMessages, // Use the predefined object
+            expandedView: false, // Default expanded view state
+            languageTexts: {} // Initialize as empty, will be populated below
+        };
+
+        // Merge user config with defaults
+        config = window.ChatWidgetConfig ?
+            {
+                webhook: { ...defaultConfig.webhook, ...window.ChatWidgetConfig.webhook },
+                branding: { ...defaultConfig.branding, ...window.ChatWidgetConfig.branding },
+                style: { ...defaultConfig.style, ...window.ChatWidgetConfig.style },
+                proactivePrompt: { ...defaultConfig.proactivePrompt, ...(window.ChatWidgetConfig.proactivePrompt || {}) },
+                skipWelcomeScreen: typeof window.ChatWidgetConfig.skipWelcomeScreen === 'boolean' ? window.ChatWidgetConfig.skipWelcomeScreen : defaultConfig.skipWelcomeScreen,
+                greetingMessage: { ...defaultConfig.greetingMessage, ...(window.ChatWidgetConfig.greetingMessage || {}) },
+                expandedView: window.ChatWidgetConfig.expandedView || defaultConfig.expandedView,
+                languageTexts: { ...defaultConfig.languageTexts, ...(window.ChatWidgetConfig.languageTexts || {}) }, // Merge languageTexts as well
+                metadata: { ...defaultConfig.metadata, ...(window.ChatWidgetConfig.metadata || {}) }, // Merge metadata
+                detectLocation: typeof window.ChatWidgetConfig.detectLocation === 'boolean' ? window.ChatWidgetConfig.detectLocation : defaultConfig.detectLocation // Merge detectLocation
+            } : defaultConfig;
+
+        // Calculate effective language AFTER merging config, detect from URL path
+        const pathLangMatch = window.location.pathname.match(/\/([a-z]{2}(?:[-_][a-z]{2})?)(?:\/|$)/i);
+        const urlLang = pathLangMatch ? pathLangMatch[1].toLowerCase() : null;
+        const finalUserLangSource = config.metadata?.language || urlLang || navigator.language || 'en';
+        const finalLangMatch = finalUserLangSource.match(/^([a-z]{2})(?:[-_]([a-z]{2}))?/i);
+        // Use the full match (e.g., 'pt_br') if available, otherwise just the base ('pt'), default to 'en'
+        const detectedLang = finalLangMatch ? (finalLangMatch[2] ? finalLangMatch[0].toLowerCase() : finalLangMatch[1].toLowerCase()) : 'en'; 
+        const baseLang = finalLangMatch ? finalLangMatch[1].toLowerCase() : 'en'; // Always the 2-letter code ('pt', 'en')
+
+        // Mensagens traduzidas padrão (usadas como último fallback dentro de getText)
+        const defaultLanguageTexts = {
+            en: {
+                connecting: "Hi! Connecting you...",
+                fallback: "Hi! How can I help?",
+                processing: "Thank you for your message. We're processing it and will respond shortly.",
+                error: "Thank you for your message. How can I help you further?",
+                inputPlaceholder: "Type your message...",
+                startChat: "Start chat",
+                defaultResponseTime: "We typically respond right away",
+                welcomeText: "Hi 👋, how can we help?"
+            },
+            pt: {
+                connecting: "Olá! Estamos conectando você...",
+                fallback: "Olá! Como posso ajudar?",
+                processing: "Obrigado pela sua mensagem. Estamos processando e responderemos em breve.",
+                error: "Obrigado pela sua mensagem. Como posso ajudar mais?",
+                inputPlaceholder: "Digite sua mensagem...",
+                startChat: "Iniciar conversa",
+                defaultResponseTime: "Normalmente respondemos imediatamente",
+                welcomeText: "Oi 👋, como podemos ajudar?"
+            },
+            es: {
+                connecting: "¡Hola! Conectándote...",
+                fallback: "¡Hola! ¿Cómo puedo ayudar?",
+                processing: "Gracias por tu mensaje. Lo estamos procesando y responderemos pronto.",
+                error: "Gracias por tu mensaje. ¿Cómo puedo ayudarte más?",
+                inputPlaceholder: "Escribe tu mensaje...",
+                startChat: "Iniciar conversación",
+                defaultResponseTime: "Solemos responder de inmediato",
+                welcomeText: "¡Hola 👋! ¿Cómo podemos ayudar?"
+            },
+            ar: {
+                connecting: "مرحباً! جاري توصيلك...",
+                fallback: "مرحباً! كيف يمكنني المساعدة؟",
+                processing: "شكراً لرسالتك. نحن نعالجها وسنرد قريباً.",
+                error: "شكراً لرسالتك. كيف يمكنني المساعدة أكثر؟",
+                inputPlaceholder: "اكتب رسالتك...",
+                startChat: "بدء المحادثة",
+                defaultResponseTime: "عادة ما نرد على الفور",
+                welcomeText: "مرحباً 👋! كيف يمكننا المساعدة؟"
+            }
+        };
+        // Ensure defaultConfig.languageTexts points to the default translations
+        // Assign it here AFTER defaultConfig is fully defined.
+        defaultConfig.languageTexts = defaultLanguageTexts;
+
+        // --- Helper Function to Get Text from languageTexts (Simplified) ---
+        function getText(key, fallbackValue = '') {
+            const userTexts = config.languageTexts;
+            const defaultTexts = defaultConfig.languageTexts; // Assumes defaultConfig.languageTexts is set below
+
+            // Check User Config
+            if (userTexts) {
+                if (userTexts[detectedLang] && userTexts[detectedLang][key] !== undefined) return userTexts[detectedLang][key];
+                if (userTexts[baseLang] && userTexts[baseLang][key] !== undefined) return userTexts[baseLang][key];
+                if (userTexts['en'] && userTexts['en'][key] !== undefined) return userTexts['en'][key];
+            }
+            // Check Default Config
+            if (defaultTexts) {
+                if (defaultTexts[detectedLang] && defaultTexts[detectedLang][key] !== undefined) return defaultTexts[detectedLang][key];
+                if (defaultTexts[baseLang] && defaultTexts[baseLang][key] !== undefined) return defaultTexts[baseLang][key];
+                if (defaultTexts['en'] && defaultTexts['en'][key] !== undefined) return defaultTexts['en'][key];
+            }
+            // Fallback
+            return fallbackValue;
+        }
+
+        // --- DEBUG --- Logar a configuração mesclada
+        debug('Configuração mesclada final:', config);
+        // --- DEBUG --- Logar idiomas detectados
+        debug(`Idioma detectado (completo): ${detectedLang}, Idioma base: ${baseLang}`);
+
+        // Prevent multiple initializations
+        if (window.N8NChatWidgetInitialized) return;
+        window.N8NChatWidgetInitialized = true;
+
+        // Create widget container
+        widgetContainer = document.createElement('div');
+        widgetContainer.className = 'n8n-chat-widget';
+        
+        // Set CSS variables for colors
+        widgetContainer.style.setProperty('--n8n-chat-primary-color', config.style.primaryColor);
+        widgetContainer.style.setProperty('--n8n-chat-secondary-color', config.style.secondaryColor);
+        widgetContainer.style.setProperty('--n8n-chat-background-color', config.style.backgroundColor);
+        widgetContainer.style.setProperty('--n8n-chat-font-color', config.style.fontColor);
+
+        chatContainer = document.createElement('div');
+        chatContainer.className = `chat-container${config.style.position === 'left' ? ' position-left' : ''}`;
+        
+        // Function to get the correct language string from a potentially multi-language object
+        function getBrandingText(brandingField, fallbackKey) {
+            const textSource = config.branding[brandingField];
+            if (typeof textSource === 'string') {
+                return textSource; // Already a simple string
+            } else if (typeof textSource === 'object' && textSource !== null) {
+                // Find the best match: detectedLang -> baseLang -> en
+                return textSource[detectedLang] ?? textSource[baseLang] ?? textSource['en'] ?? getText(fallbackKey, '');
+            } else {
+                // Use getText for fallback if field is missing or not string/object
+                return getText(fallbackKey, '');
+            }
+        }
+        
+        
+        // Criar conteúdo do chat container diretamente
+        let chatContainerHTML = `
+            <div class="brand-header">
+                ${config.branding.logo ? `<img src="${config.branding.logo}" alt="${config.branding.name || 'Chat'}" />` : ''}
+                <span>${config.branding.name || 'Chat'}</span>
+                <div class="header-buttons">
+                    <!-- Botão de Tamanho de Fonte -->
+                    <button class="header-button font-size-button" title="Alterar Tamanho da Fonte">
+                        <!-- Ícone 'Aa' mais claro -->
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:20px; height:20px;">
+                            <path d="M3.5 15.5L7 9l3.5 6.5"/>
+                            <path d="M14 19L18 5l4 14"/>
+                            <path d="M15.3 15H20.7"/>
+                            <path d="M4.9 13H9.1"/>
+                        </svg>
+                    </button>
+                    <!-- Ordem Definitiva: Expandir (esquerda), Fechar (direita) -->
+                    <button class="header-button expand-button" title="Expandir/Contrair">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
+                        </svg>
+                    </button>
+                    <button class="header-button close-button" title="Fechar">×</button>
+                </div>
+            </div>
+            <div class="chat-interface">
+                <div class="chat-messages"></div>
+                <div class="chat-input">
+                    <textarea placeholder="${getText('inputPlaceholder', 'Type your message...')}" rows="1"></textarea>
+                    <button>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                            <path d="M22 2L11 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                            <path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            <div class="new-conversation">
+                <p class="welcome-text">${getBrandingText('welcomeText', 'welcomeText')}</p>
+                <button class="new-chat-btn">
+                    <!-- Novo ícone geométrico (ex: quadrado com plus) -->
+                    <svg class="message-icon" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                        <rect x="3" y="3" width="18" height="18" rx="2" stroke="currentColor" stroke-width="2"/>
+                        <line x1="12" y1="8" x2="12" y2="16" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                        <line x1="8" y1="12" x2="16" y2="12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                    ${getText('startChat', 'Start chat')}
+                </button>
+                <p class="response-text">${getBrandingText('responseTimeText', 'defaultResponseTime')}</p>
+            </div>
+        `;
+        
+        chatContainer.innerHTML = chatContainerHTML;
+        
+        const toggleButton = document.createElement('button');
+        toggleButton.className = `chat-toggle${config.style.position === 'left' ? ' position-left' : ''}`;
+        toggleButton.innerHTML = `
+            <!-- Standard chat baloon icon - Size controlled by CSS -->
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>`;
+        
+        widgetContainer.appendChild(chatContainer);
+        widgetContainer.appendChild(toggleButton);
+        document.body.appendChild(widgetContainer);
+
+        newChatBtn = chatContainer.querySelector('.new-chat-btn');
+        chatInterface = chatContainer.querySelector('.chat-interface');
+        messagesContainer = chatContainer.querySelector('.chat-messages');
+        textarea = chatContainer.querySelector('textarea');
+        sendButton = chatContainer.querySelector('.chat-input button');
+
+        function generateUUID() {
+            // Verificar se o método nativo está disponível
+            if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+                return crypto.randomUUID();
+            }
+            
+            // Fallback para implementação manual de UUID v4
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                const r = Math.random() * 16 | 0;
+                const v = c === 'x' ? r : (r & 0x3 | 0x8);
+                return v.toString(16);
+            });
+        }
+
+        // Função para controlar logs de depuração
+        function debug(message, data, isError = false) {
+            // Verificar se o modo debug está ativado via configuração local ou global
+            const debugMode = (window.ChatWidgetConfig && window.ChatWidgetConfig.debug === true) || 
+                            (window.n8nChatDebug === true);
+            
+            if (debugMode) {
+                const method = isError ? console.error : console.log;
+                const prefix = '[n8n Chat Widget] ';
+                if (data) {
+                    method(prefix + message, data);
+                } else {
+                    method(prefix + message);
+                }
+            }
+        }
+
+        // Função para verificar se uma string é um JSON válido
+        function isValidJSON(str) {
+            try {
+                JSON.parse(str);
+                return true;
+            } catch (e) {
+                return false;
+            }
+        }
+        
+        // Função para tentar analisar JSON com segurança
+        async function safeParseJSON(response) {
+            try {
+                // Primeiro obter a resposta como texto
+                const text = await response.text();
+                
+                // Verificar se é um JSON válido
+                if (isValidJSON(text)) {
+                    return JSON.parse(text);
+                }
+                
+                // Se não for JSON válido, retornar um objeto padrão
+                debug('Resposta não é JSON válido:', text, true);
+                return { output: "Olá! Como posso ajudar?" };
+            } catch (error) {
+                debug('Erro ao processar JSON da resposta:', error, true);
+                return { output: "Olá! Como posso ajudar?" };
+            }
+        }
+
+
+        // Função para mostrar o indicador de digitação
+        function showTypingIndicator() {
+            const typingDiv = document.createElement('div');
+            typingDiv.className = 'typing-indicator';
+            typingDiv.innerHTML = '<span></span><span></span><span></span>';
+            typingDiv.id = 'typing-indicator';
+            messagesContainer.appendChild(typingDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            return typingDiv;
+        }
+        
+        // Função para remover o indicador de digitação
+        function hideTypingIndicator() {
+            const typingDiv = document.getElementById('typing-indicator');
+            if (typingDiv) {
+                typingDiv.remove();
+            }
+        }
+
+        // Função para verificar se estamos dentro de um bloco de código
+        function isWithinCodeBlock(text, position) {
+            // Encontrar todos os blocos de código ```
+            const codeBlockRegex = /```[\s\S]*?```/g;
+            let match;
+            while ((match = codeBlockRegex.exec(text)) !== null) {
+                // Verificar se a posição está dentro deste bloco
+                if (position >= match.index && position < match.index + match[0].length) {
+                    return true;
+                }
+            }
+            
+            // Encontrar todos os trechos de código inline `
+            const inlineCodeRegex = /`[^`]*`/g;
+            while ((match = inlineCodeRegex.exec(text)) !== null) {
+                // Verificar se a posição está dentro deste trecho
+                if (position >= match.index && position < match.index + match[0].length) {
+                    return true;
+                }
+            }
+            
             return false;
         }
-    }
-    
-    // Função para tentar analisar JSON com segurança
-    async function safeParseJSON(response) {
-        try {
-            // Primeiro obter a resposta como texto
-            const text = await response.text();
+
+        // Função para detectar se o conteúdo parece ser uma URL de imagem GIF ou um link de serviço de GIF
+        function isGifURL(text) {
+            if (!text) return false;
             
-            // Verificar se é um JSON válido
-            if (isValidJSON(text)) {
-                return JSON.parse(text);
-            }
+            // Verificar se é uma string
+            if (typeof text !== 'string') return false;
             
-            // Se não for JSON válido, retornar um objeto padrão
-            debug('Resposta não é JSON válido:', text, true);
-            return { output: "Olá! Como posso ajudar?" };
-        } catch (error) {
-            debug('Erro ao processar JSON da resposta:', error, true);
-            return { output: "Olá! Como posso ajudar?" };
-        }
-    }
-
-
-    // Função para mostrar o indicador de digitação
-    function showTypingIndicator() {
-        const typingDiv = document.createElement('div');
-        typingDiv.className = 'typing-indicator';
-        typingDiv.innerHTML = '<span></span><span></span><span></span>';
-        typingDiv.id = 'typing-indicator';
-        messagesContainer.appendChild(typingDiv);
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
-        return typingDiv;
-    }
-    
-    // Função para remover o indicador de digitação
-    function hideTypingIndicator() {
-        const typingDiv = document.getElementById('typing-indicator');
-        if (typingDiv) {
-            typingDiv.remove();
-        }
-    }
-
-    // Função para verificar se estamos dentro de um bloco de código
-    function isWithinCodeBlock(text, position) {
-        // Encontrar todos os blocos de código ```
-        const codeBlockRegex = /```[\s\S]*?```/g;
-        let match;
-        while ((match = codeBlockRegex.exec(text)) !== null) {
-            // Verificar se a posição está dentro deste bloco
-            if (position >= match.index && position < match.index + match[0].length) {
+            // Verificar se contém uma URL
+            const urlMatch = text.match(/https?:\/\/\S+/i);
+            if (!urlMatch) return false;
+            
+            const url = urlMatch[0].trim();
+            
+            // Remover caracteres de pontuação do final da URL
+            let cleanUrl = url.replace(/[.,;!?]$/, '');
+            
+            // Verificar diretamente se é uma imagem com extensão suportada
+            if (/\.(gif|jpe?g|png|webp|svg)(\?[^"'\s<>]*)?$/i.test(cleanUrl)) {
                 return true;
             }
-        }
-        
-        // Encontrar todos os trechos de código inline `
-        const inlineCodeRegex = /`[^`]*`/g;
-        while ((match = inlineCodeRegex.exec(text)) !== null) {
-            // Verificar se a posição está dentro deste trecho
-            if (position >= match.index && position < match.index + match[0].length) {
-                return true;
-            }
-        }
-        
-        return false;
-    }
-
-    // Função para detectar se o conteúdo parece ser uma URL de imagem GIF ou um link de serviço de GIF
-    function isGifURL(text) {
-        if (!text) return false;
-        
-        // Verificar se é uma string
-        if (typeof text !== 'string') return false;
-        
-        // Verificar se contém uma URL
-        const urlMatch = text.match(/https?:\/\/\S+/i);
-        if (!urlMatch) return false;
-        
-        const url = urlMatch[0].trim();
-        
-        // Remover caracteres de pontuação do final da URL
-        let cleanUrl = url.replace(/[.,;!?]$/, '');
-        
-        // Verificar diretamente se é uma imagem com extensão suportada
-        if (/\.(gif|jpe?g|png|webp|svg)(\?[^"'\s<>]*)?$/i.test(cleanUrl)) {
-            return true;
-        }
-        
-        // Verificar serviços de imagens conhecidos
-        const imageServices = [
-            /giphy\.com/i,
-            /tenor\.com/i,
-            /gfycat\.com/i,
-            /media\.giphy\.com/i,
-            /media\.tenor\.com/i,
-            /imgur\.com/i,
-            /cloudinary\.com/i,
-            /unsplash\.com/i,
-            /flickr\.com/i,
-            /500px\.com/i,
-            /instagram\.com/i
-        ];
-        
-        return imageServices.some(regex => regex.test(cleanUrl));
-    }
-
-    // Função para processar uma única URL e determinar se é uma imagem
-    function processImageURL(url) {
-        if (!url) return null;
-        
-        // Limpar a URL
-        let cleanUrl = url.trim();
-        
-        // Remover caracteres de pontuação no final
-        cleanUrl = cleanUrl.replace(/[.,;!?]$/, '');
-        
-        // Verificar se é uma URL de imagem conhecida
-        if (/\.(gif|jpe?g|png|webp|svg)(\?[^"'\s<>]*)?$/i.test(cleanUrl)) {
-            const url = cleanUrl;
             
-            // Usar template string sem quebras de linha para evitar problemas
-            return {
-                url: cleanUrl,
-                isImage: true,
-                type: cleanUrl.match(/\.(gif|jpe?g|png|webp|svg)/i)[1].toLowerCase()
-            };
+            // Verificar serviços de imagens conhecidos
+            const imageServices = [
+                /giphy\.com/i,
+                /tenor\.com/i,
+                /gfycat\.com/i,
+                /media\.giphy\.com/i,
+                /media\.tenor\.com/i,
+                /imgur\.com/i,
+                /cloudinary\.com/i,
+                /unsplash\.com/i,
+                /flickr\.com/i,
+                /500px\.com/i,
+                /instagram\.com/i
+            ];
+            
+            return imageServices.some(regex => regex.test(cleanUrl));
         }
-        
-        // Verificar serviços de imagens conhecidos
-        const imageServices = [
-            { regex: /giphy\.com/i, type: 'gif' },
-            { regex: /tenor\.com/i, type: 'gif' },
-            { regex: /gfycat\.com/i, type: 'gif' },
-            { regex: /media\.giphy\.com/i, type: 'gif' },
-            { regex: /media\.tenor\.com/i, type: 'gif' },
-            { regex: /imgur\.com/i, type: 'img' },
-            { regex: /cloudinary\.com/i, type: 'img' },
-            { regex: /unsplash\.com/i, type: 'img' },
-            { regex: /flickr\.com/i, type: 'img' },
-            { regex: /500px\.com/i, type: 'img' }
-        ];
-        
-        for (const service of imageServices) {
-            if (service.regex.test(cleanUrl)) {
+
+        // Função para processar uma única URL e determinar se é uma imagem
+        function processImageURL(url) {
+            if (!url) return null;
+            
+            // Limpar a URL
+            let cleanUrl = url.trim();
+            
+            // Remover caracteres de pontuação no final
+            cleanUrl = cleanUrl.replace(/[.,;!?]$/, '');
+            
+            // Verificar se é uma URL de imagem conhecida
+            if (/\.(gif|jpe?g|png|webp|svg)(\?[^"'\s<>]*)?$/i.test(cleanUrl)) {
+                const url = cleanUrl;
+                
+                // Usar template string sem quebras de linha para evitar problemas
                 return {
                     url: cleanUrl,
                     isImage: true,
-                    type: service.type
+                    type: cleanUrl.match(/\.(gif|jpe?g|png|webp|svg)/i)[1].toLowerCase()
                 };
+            }
+            
+            // Verificar serviços de imagens conhecidos
+            const imageServices = [
+                { regex: /giphy\.com/i, type: 'gif' },
+                { regex: /tenor\.com/i, type: 'gif' },
+                { regex: /gfycat\.com/i, type: 'gif' },
+                { regex: /media\.giphy\.com/i, type: 'gif' },
+                { regex: /media\.tenor\.com/i, type: 'gif' },
+                { regex: /imgur\.com/i, type: 'img' },
+                { regex: /cloudinary\.com/i, type: 'img' },
+                { regex: /unsplash\.com/i, type: 'img' },
+                { regex: /flickr\.com/i, type: 'img' },
+                { regex: /500px\.com/i, type: 'img' }
+            ];
+            
+            for (const service of imageServices) {
+                if (service.regex.test(cleanUrl)) {
+                    return {
+                        url: cleanUrl,
+                        isImage: true,
+                        type: service.type
+                    };
+                }
+            }
+            
+            return {
+                url: cleanUrl,
+                isImage: false
+            };
+        }
+
+        // Função para extrair URLs de imagem
+        function extractImageUrls(text) {
+            if (!text) return [];
+            
+            const urls = [];
+            const imageRegex = /https?:\/\/[^\s<>"']+\.(gif|jpe?g|png|webp|svg)(\?[^"'\s<>]*)?/gi;
+            let match;
+            
+            while ((match = imageRegex.exec(text)) !== null) {
+                urls.push(match[0]);
+            }
+            
+            return urls;
+        }
+
+        // Função para verificar se uma string é uma URL válida
+        function isValidUrl(string) {
+            try {
+                new URL(string);
+                return true;
+            } catch (_) {
+                return false;
+            }
+        }
+
+        // N8N Chat Widget
+    // v0.6.20
+        // Chat Widget Script Version 0.6.14 // v0.6.14: Simplified & fixed quick‑action parsing
+    function processQuickActions(text) {
+        if (!text) return { text: '', hasQuickActions: false };
+    
+        let cleaned = text.trim();
+        let inputObject = null;
+        const buttons = [], selectOptions = [], links = [];
+    
+        // 1) extract input/secret
+        cleaned = cleaned.replace(
+        /(?:\[\{|\{\[)(input|secret)([\s\S]*?)(?:\}\]|\]\})/i,
+        (_m, type, body) => {
+            const parts = body.split('|').map(p => p.trim()).filter(Boolean);
+            let placeholder='', prefix='', required=false, validation='none';
+            parts.forEach(p => {
+            const low = p.toLowerCase();
+            if (low==='required')               required = true;
+            else if (['email','url','phone'].includes(low)) validation = low;
+            else if (!placeholder)             placeholder = p;
+            else if (!prefix)                  prefix = p;
+            });
+            inputObject = { type, placeholder, prefix, required, validation };
+            return '';
+        }
+        );
+    
+        // 2) extract [text](action:…) links/buttons
+        cleaned = cleaned.replace(
+        /\[([^\]]+)\]\((action|acao):([^)]+)\)/gi,
+        (_m, txt, _t, act) => {
+            if (isValidUrl(act)) buttons.push({ text: txt, action: act, type:'external' });
+            else                 links.push({ text: txt, action: act });
+            return '';
+        }
+        );
+    
+        // 3) extract buttons [{button|Text|Action}]
+        cleaned = cleaned.replace(
+        /\[\{(?:button|botao)(?:\||:)\|?([^|]+)\|([^|}\n]+)\}\]/gi,
+        (_m, btnText, btnAction) => {
+            const act = btnAction.trim();
+            buttons.push({
+            text: btnText.trim(),
+            action: act,
+            type: isValidUrl(act) ? 'external' : 'normal',
+            });
+            return '';
+        }
+        );
+    
+        // 4) extract select lists [{list|Title|opt:act|…}]
+        cleaned = cleaned.replace(
+        /\[\{(list|lista):([^|]+)\|([^}]+)\}\]/gi,
+        (_m, title, opts) => {
+            const options = opts.split('|').map(o => {
+            const [t,a] = o.split(':').map(s => s.trim()); // Trim text and action
+            return { text: t.trim(), action: a.trim(), type: isValidUrl(a.trim()) ? 'external' : 'normal' };
+            });
+            selectOptions.push({ title: title.trim(), options });
+            return '';
+        }
+        );
+    
+        // 5) strip any leftover markers
+        cleaned = cleaned
+        .replace(/\[\{[^\]]*?\}\]/g, '')
+        .replace(/\{\[[^\]]*?\]\}/g, '')
+        .trim();
+    
+        const hasQuickActions = !!(inputObject || buttons.length || selectOptions.length || links.length);
+        return { text: cleaned, input: inputObject, buttons, selectOptions, links, hasQuickActions };
+    }
+        
+        // Função para mostrar uma mensagem do bot com suporte a markdown e conteúdo especial
+        function displayBotMessage(message, metadata) { 
+            const botMessageDiv = document.createElement('div');
+            botMessageDiv.className = 'chat-message bot';
+            
+            // Verificar se a mensagem contém somente uma URL de imagem
+            if (/^https?:\/\/[^\s<>"']+\.(gif|jpe?g|png|webp|svg)(\?[^"'\s<>]*)?$/i.test(message.trim())) {
+                const url = message.trim();
+                
+                // Criar elemento de imagem programaticamente para evitar problemas
+                const imageContainer = document.createElement('div');
+                imageContainer.className = 'image-container';
+                
+                const img = document.createElement('img');
+                img.src = url;
+                img.alt = 'Imagem';
+                
+                // Adicionar onerror handler como função em vez de string
+                img.onerror = function() {
+                    this.style.display = 'none';
+                    const placeholder = document.createElement('div');
+                    placeholder.className = 'image-placeholder';
+                    placeholder.textContent = 'Imagem não disponível';
+                    this.parentNode.innerHTML = '';
+                    this.parentNode.appendChild(placeholder);
+                };
+                
+                imageContainer.appendChild(img);
+                botMessageDiv.appendChild(imageContainer);
+            } else {
+                // Processar objetos de ação rápida
+                const quickActions = processQuickActions(message);
+                console.log('[DEBUG] displayBotMessage quickActions:', quickActions);
+                // Renderizar mensagem normalmente com o texto processado
+                botMessageDiv.innerHTML = renderSpecialContent(quickActions.text);
+                
+                // Renderizar objetos de ação rápida, se houver
+                renderQuickActions(quickActions, botMessageDiv, metadata);
+            }
+            
+            messagesContainer.appendChild(botMessageDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        // Função para obter mensagem traduzida (DEPRECATED - Use getText)
+        function getTranslatedMessage(key) {
+            // Log warning about deprecated usage
+            debug(`Deprecated function getTranslatedMessage called for key: ${key}. Use getText instead.`);
+            // Use the new function as a fallback mechanism
+            return getText(key, '');
+        }
+
+        // Sobrescrita global de fetch para suprimir erros 500
+        const originalFetch = window.fetch;
+        window.fetch = function(url, options) {
+            return originalFetch(url, options)
+                .then(response => {
+                    // Se for um erro 500 para o webhook específico, suprimir o erro no console
+                    if (response.status === 500 && 
+                        url.toString().includes(config.webhook.url)) {
+                        // Silenciar o erro no console
+                        console.groupCollapsed('[n8n Chat Widget] Requisição tratada (500)');
+                        console.info('URL:', url);
+                        console.info('Status:', response.status);
+                        console.groupEnd();
+                        
+                        // Clonar a resposta para não alterá-la
+                        const originalClone = response.clone();
+                        
+                        // Retornar uma resposta falsificada para o código continuar funcionando
+                        return {
+                            ok: true,
+                            status: 200,
+                            statusText: "OK",
+                            headers: new Headers({ "content-type": "application/json" }),
+                            json: async () => ({ output: getText('fallback', 'Hi! How can I help?') }),
+                            text: async () => JSON.stringify({ output: getText('fallback', 'Hi! How can I help?') }),
+                            clone: function() { return this; }
+                        };
+                    }
+                    return response;
+                })
+                .catch(error => {
+                    // Se a URL for do webhook, interceptar o erro
+                    if (typeof url === 'string' && url.includes(config.webhook.url)) {
+                        console.groupCollapsed('[n8n Chat Widget] Erro de rede interceptado');
+                        console.info('URL:', url);
+                        console.info('Erro:', error.message);
+                        console.groupEnd();
+                        
+                        // Retornar uma resposta falsificada
+                        return {
+                            ok: true,
+                            status: 200,
+                            statusText: "OK",
+                            headers: new Headers({ "content-type": "application/json" }),
+                            json: async () => ({ output: getText('fallback', 'Hi! How can I help?') }),
+                            text: async () => JSON.stringify({ output: getText('fallback', 'Hi! How can I help?') }),
+                            clone: function() { return this; }
+                        };
+                    }
+                    
+                    // Para outras URLs, deixar o erro passar normalmente
+                    throw error;
+                });
+        };
+
+        async function startNewConversation() {
+            console.log("[DEBUG] startNewConversation: START"); // Added log
+            currentSessionId = generateUUID();
+            // Get metadata asynchronously first
+            const metadata = await getMetadata();
+
+            const data = {
+                action: "loadPreviousSession",
+                sessionId: currentSessionId,
+                route: config.webhook.route || 'general',
+                metadata: metadata // Use the gathered metadata object
+            };
+
+        // Remove any existing initial message (like "connecting...")
+        const initialMessageDiv = messagesContainer.querySelector('.chat-message.bot');
+        if (initialMessageDiv) {
+            initialMessageDiv.remove();
+        }
+
+        // Always show configured greeting as first bot message
+        displayBotMessage( getGreetingMessage() );
+        
+        // If skipping welcome, stop here to avoid default fallback message
+        if (config.skipWelcomeScreen) {
+            return;
+        }
+        
+        // Show typing indicator while loading
+        const typingIndicator = showTypingIndicator(); // Keep reference
+
+            try {
+                debug('Iniciando nova conversa:', data);
+                const response = await fetch(config.webhook.url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                debug('Resposta do webhook - Status:', response.status);
+                let responseMessage = getText('processing', 'Processing...'); // Use new function
+                
+                // Verificar se a resposta é válida
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                // Tentar ler o texto da resposta primeiro
+                const responseText = await response.text();
+                debug('Resposta do webhook - Texto:', responseText);
+
+                try {
+                    // Tentar fazer o parse do JSON apenas se houver conteúdo
+                    if (responseText && responseText.trim()) {
+                        const data = JSON.parse(responseText);
+                        debug('Resposta do webhook - JSON:', data);
+                        
+                        // Verificar diferentes formatos possíveis de resposta
+                        if (data.output) {
+                            responseMessage = data.output;
+                        } else if (data.data && Array.isArray(data.data) && data.data.length > 0) {
+                            if (data.data[0].output) {
+                                responseMessage = data.data[0].output;
+                            }
+                        } else if (typeof data === 'string') {
+                            responseMessage = data;
+                        } else {
+                            debug('Resposta em formato desconhecido:', data);
+                            responseMessage = getText('fallback', 'Hi! How can I help?'); // Use new function
+                        }
+                    } else {
+                        debug('Resposta vazia do webhook');
+                        responseMessage = getText('fallback', 'Hi! How can I help?'); // Use new function
+                    }
+                } catch (error) {
+                    debug('Erro ao processar JSON da resposta:', error, true);
+                    responseMessage = getText('fallback', 'Hi! How can I help?'); // Use new function
+                }
+                
+                // Remover o indicador de digitação
+                hideTypingIndicator();
+                
+                // Mostrar a resposta do bot
+                displayBotMessage(responseMessage, metadata);
+            } catch (error) {
+                console.error("[DEBUG] startNewConversation().catch block triggered. Error object:", error); // Added log
+                console.error("[DEBUG] Error message:", error?.message); // Added log
+                console.error("[DEBUG] Error stack:", error?.stack); // Added log
+                debug('Erro ao iniciar conversa:', error, true);
+                hideTypingIndicator();
+                displayBotMessage(getText('error', 'Sorry, something went wrong.'), metadata); // Use new function for error message
             }
         }
         
-        return {
-            url: cleanUrl,
-            isImage: false
-        };
-    }
+        async function sendMessage(message, { maskedMessage = null, skipLocal = false } = {}) {
+            if (!message || message.trim() === '') return;
 
-    // Função para extrair URLs de imagem
-    function extractImageUrls(text) {
-        if (!text) return [];
-        
-        const urls = [];
-        const imageRegex = /https?:\/\/[^\s<>"']+\.(gif|jpe?g|png|webp|svg)(\?[^"'\s<>]*)?/gi;
-        let match;
-        
-        while ((match = imageRegex.exec(text)) !== null) {
-            urls.push(match[0]);
-        }
-        
-        return urls;
-    }
+            // Get metadata asynchronously first
+            const metadata = await getMetadata();
 
-    // Função para verificar se uma string é uma URL válida
-    function isValidUrl(string) {
-        try {
-            new URL(string);
-            return true;
-        } catch (_) {
-            return false;
-        }
-    }
-
-    // N8N Chat Widget
-// v0.6.20
-    // Chat Widget Script Version 0.6.14 // v0.6.14: Simplified & fixed quick‑action parsing
-function processQuickActions(text) {
-    if (!text) return { text: '', hasQuickActions: false };
-  
-    let cleaned = text.trim();
-    let inputObject = null;
-    const buttons = [], selectOptions = [], links = [];
-  
-    // 1) extract input/secret
-    cleaned = cleaned.replace(
-      /(?:\[\{|\{\[)(input|secret)([\s\S]*?)(?:\}\]|\]\})/i,
-      (_m, type, body) => {
-        const parts = body.split('|').map(p => p.trim()).filter(Boolean);
-        let placeholder='', prefix='', required=false, validation='none';
-        parts.forEach(p => {
-          const low = p.toLowerCase();
-          if (low==='required')               required = true;
-          else if (['email','url','phone'].includes(low)) validation = low;
-          else if (!placeholder)             placeholder = p;
-          else if (!prefix)                  prefix = p;
-        });
-        inputObject = { type, placeholder, prefix, required, validation };
-        return '';
-      }
-    );
-  
-    // 2) extract [text](action:…) links/buttons
-    cleaned = cleaned.replace(
-      /\[([^\]]+)\]\((action|acao):([^)]+)\)/gi,
-      (_m, txt, _t, act) => {
-        if (isValidUrl(act)) buttons.push({ text: txt, action: act, type:'external' });
-        else                 links.push({ text: txt, action: act });
-        return '';
-      }
-    );
-  
-    // 3) extract buttons [{button|Text|Action}]
-    cleaned = cleaned.replace(
-      /\[\{(?:button|botao)(?:\||:)\|?([^|]+)\|([^|}\n]+)\}\]/gi,
-      (_m, btnText, btnAction) => {
-        const act = btnAction.trim();
-        buttons.push({
-          text: btnText.trim(),
-          action: act,
-          type: isValidUrl(act) ? 'external' : 'normal',
-        });
-        return '';
-      }
-    );
-  
-    // 4) extract select lists [{list|Title|opt:act|…}]
-    cleaned = cleaned.replace(
-      /\[\{(list|lista):([^|]+)\|([^}]+)\}\]/gi,
-      (_m, title, opts) => {
-        const options = opts.split('|').map(o => {
-          const [t,a] = o.split(':');
-          return { text: t.trim(), action: a.trim(), type: isValidUrl(a.trim()) ? 'external' : 'normal' };
-        });
-        selectOptions.push({ title: title.trim(), options });
-        return '';
-      }
-    );
-  
-    // 5) strip any leftover markers
-    cleaned = cleaned
-      .replace(/\[\{[^\]]*?\}\]/g, '')
-      .replace(/\{\[[^\]]*?\]\}/g, '')
-      .trim();
-  
-    const hasQuickActions = !!(inputObject || buttons.length || selectOptions.length || links.length);
-    return { text: cleaned, input: inputObject, buttons, selectOptions, links, hasQuickActions };
-  }
-    
-    // Função para mostrar uma mensagem do bot com suporte a markdown e conteúdo especial
-    function displayBotMessage(message, metadata) { 
-        const botMessageDiv = document.createElement('div');
-        botMessageDiv.className = 'chat-message bot';
-        
-        // Verificar se a mensagem contém somente uma URL de imagem
-        if (/^https?:\/\/[^\s<>"']+\.(gif|jpe?g|png|webp|svg)(\?[^"'\s<>]*)?$/i.test(message.trim())) {
-            const url = message.trim();
-            
-            // Criar elemento de imagem programaticamente para evitar problemas
-            const imageContainer = document.createElement('div');
-            imageContainer.className = 'image-container';
-            
-            const img = document.createElement('img');
-            img.src = url;
-            img.alt = 'Imagem';
-            
-            // Adicionar onerror handler como função em vez de string
-            img.onerror = function() {
-                this.style.display = 'none';
-                const placeholder = document.createElement('div');
-                placeholder.className = 'image-placeholder';
-                placeholder.textContent = 'Imagem não disponível';
-                this.parentNode.innerHTML = '';
-                this.parentNode.appendChild(placeholder);
+            const messageData = {
+                action: "sendMessage",
+                sessionId: currentSessionId,
+                route: config.webhook.route || 'general',
+                chatInput: message,
+                metadata: metadata // Use the gathered metadata object
             };
-            
-            imageContainer.appendChild(img);
-            botMessageDiv.appendChild(imageContainer);
-        } else {
-            // Processar objetos de ação rápida
-            const quickActions = processQuickActions(message);
-            console.log('[DEBUG] displayBotMessage quickActions:', quickActions);
-            // Renderizar mensagem normalmente com o texto processado
-            botMessageDiv.innerHTML = renderSpecialContent(quickActions.text);
-            
-            // Renderizar objetos de ação rápida, se houver
-            renderQuickActions(quickActions, botMessageDiv, metadata);
+
+        // Exibir mensagem do usuário
+        if (!skipLocal) {
+            const userMessageDiv = document.createElement('div');
+            userMessageDiv.className = 'chat-message user';
+            userMessageDiv.textContent = maskedMessage || message;
+            messagesContainer.appendChild(userMessageDiv);
         }
-        
-        messagesContainer.appendChild(botMessageDiv);
         messagesContainer.scrollTop = messagesContainer.scrollHeight;
-    }
 
-    // Função para obter mensagem traduzida (DEPRECATED - Use getText)
-    function getTranslatedMessage(key) {
-        // Log warning about deprecated usage
-        debug(`Deprecated function getTranslatedMessage called for key: ${key}. Use getText instead.`);
-        // Use the new function as a fallback mechanism
-        return getText(key, '');
-    }
-
-    // Sobrescrita global de fetch para suprimir erros 500
-    const originalFetch = window.fetch;
-    window.fetch = function(url, options) {
-        return originalFetch(url, options)
-            .then(response => {
-                // Se for um erro 500 para o webhook específico, suprimir o erro no console
-                if (response.status === 500 && 
-                    url.toString().includes(config.webhook.url)) {
-                    // Silenciar o erro no console
-                    console.groupCollapsed('[n8n Chat Widget] Requisição tratada (500)');
-                    console.info('URL:', url);
-                    console.info('Status:', response.status);
-                    console.groupEnd();
-                    
-                    // Clonar a resposta para não alterá-la
-                    const originalClone = response.clone();
-                    
-                    // Retornar uma resposta falsificada para o código continuar funcionando
-                    return {
-                        ok: true,
-                        status: 200,
-                        statusText: "OK",
-                        headers: new Headers({ "content-type": "application/json" }),
-                        json: async () => ({ output: getText('fallback', 'Hi! How can I help?') }),
-                        text: async () => JSON.stringify({ output: getText('fallback', 'Hi! How can I help?') }),
-                        clone: function() { return this; }
-                    };
-                }
-                return response;
-            })
-            .catch(error => {
-                // Se a URL for do webhook, interceptar o erro
-                if (typeof url === 'string' && url.includes(config.webhook.url)) {
-                    console.groupCollapsed('[n8n Chat Widget] Erro de rede interceptado');
-                    console.info('URL:', url);
-                    console.info('Erro:', error.message);
-                    console.groupEnd();
-                    
-                    // Retornar uma resposta falsificada
-                    return {
-                        ok: true,
-                        status: 200,
-                        statusText: "OK",
-                        headers: new Headers({ "content-type": "application/json" }),
-                        json: async () => ({ output: getText('fallback', 'Hi! How can I help?') }),
-                        text: async () => JSON.stringify({ output: getText('fallback', 'Hi! How can I help?') }),
-                        clone: function() { return this; }
-                    };
-                }
-                
-                // Para outras URLs, deixar o erro passar normalmente
-                throw error;
-            });
-    };
-
-    async function startNewConversation() {
-        console.log("[DEBUG] startNewConversation: START"); // Added log
-        currentSessionId = generateUUID();
-        // Get metadata asynchronously first
-        const metadata = await getMetadata();
-
-        const data = {
-            action: "loadPreviousSession",
-            sessionId: currentSessionId,
-            route: config.webhook.route || 'general',
-            metadata: metadata // Use the gathered metadata object
-        };
-
-    // Remove any existing initial message (like "connecting...")
-    const initialMessageDiv = messagesContainer.querySelector('.chat-message.bot');
-    if (initialMessageDiv) {
-        initialMessageDiv.remove();
-    }
-
-    // Always show configured greeting as first bot message
-    displayBotMessage( getGreetingMessage() );
-    
-    // If skipping welcome, stop here to avoid default fallback message
-    if (config.skipWelcomeScreen) {
-        return;
-    }
-    
-    // Show typing indicator while loading
-    const typingIndicator = showTypingIndicator(); // Keep reference
+        // Mostrar indicador de digitação
+        showTypingIndicator();
 
         try {
-            debug('Iniciando nova conversa:', data);
+            debug('Enviando mensagem para webhook:', messageData);
             const response = await fetch(config.webhook.url, {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json',
                     'Accept': 'application/json'
                 },
-                body: JSON.stringify(data)
+                body: JSON.stringify(messageData)
             });
 
             debug('Resposta do webhook - Status:', response.status);
             let responseMessage = getText('processing', 'Processing...'); // Use new function
-            
+                
             // Verificar se a resposta é válida
             if (!response.ok) {
                 throw new Error(`HTTP error! status: ${response.status}`);
@@ -1919,1025 +1950,1036 @@ function processQuickActions(text) {
             // Mostrar a resposta do bot
             displayBotMessage(responseMessage, metadata);
         } catch (error) {
-            console.error("[DEBUG] startNewConversation().catch block triggered. Error object:", error); // Added log
-            console.error("[DEBUG] Error message:", error?.message); // Added log
-            console.error("[DEBUG] Error stack:", error?.stack); // Added log
-            debug('Erro ao iniciar conversa:', error, true);
+            debug('Erro na chamada do webhook:', error, true);
             hideTypingIndicator();
             displayBotMessage(getText('error', 'Sorry, something went wrong.'), metadata); // Use new function for error message
         }
-    }
-    
-    async function sendMessage(message, { maskedMessage = null, skipLocal = false } = {}) {
-        if (!message || message.trim() === '') return;
-
-        // Get metadata asynchronously first
-        const metadata = await getMetadata();
-
-        const messageData = {
-            action: "sendMessage",
-            sessionId: currentSessionId,
-            route: config.webhook.route || 'general',
-            chatInput: message,
-            metadata: metadata // Use the gathered metadata object
-        };
-
-    // Exibir mensagem do usuário
-    if (!skipLocal) {
-        const userMessageDiv = document.createElement('div');
-        userMessageDiv.className = 'chat-message user';
-        userMessageDiv.textContent = maskedMessage || message;
-        messagesContainer.appendChild(userMessageDiv);
-    }
-    messagesContainer.scrollTop = messagesContainer.scrollHeight;
-
-    // Mostrar indicador de digitação
-    showTypingIndicator();
-
-    try {
-        debug('Enviando mensagem para webhook:', messageData);
-        const response = await fetch(config.webhook.url, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'Accept': 'application/json'
-            },
-            body: JSON.stringify(messageData)
-        });
-
-        debug('Resposta do webhook - Status:', response.status);
-        let responseMessage = getText('processing', 'Processing...'); // Use new function
-            
-        // Verificar se a resposta é válida
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
         }
 
-        // Tentar ler o texto da resposta primeiro
-        const responseText = await response.text();
-        debug('Resposta do webhook - Texto:', responseText);
-
-        try {
-            // Tentar fazer o parse do JSON apenas se houver conteúdo
-            if (responseText && responseText.trim()) {
-                const data = JSON.parse(responseText);
-                debug('Resposta do webhook - JSON:', data);
+        // Função auxiliar para extrair URLs de imagem
+        function extractGifURL(text) {
+            if (!text) return null;
+            
+            // Encontrar todas as URLs no texto
+            const urlRegex = /https?:\/\/\S+/gi;
+            let match;
+            let validImages = [];
+            
+            while ((match = urlRegex.exec(text)) !== null) {
+                const url = match[0];
+                const urlPosition = match.index;
                 
-                // Verificar diferentes formatos possíveis de resposta
-                if (data.output) {
-                    responseMessage = data.output;
-                } else if (data.data && Array.isArray(data.data) && data.data.length > 0) {
-                    if (data.data[0].output) {
-                        responseMessage = data.data[0].output;
-                    }
-                } else if (typeof data === 'string') {
-                    responseMessage = data;
-                } else {
-                    debug('Resposta em formato desconhecido:', data);
-                    responseMessage = getText('fallback', 'Hi! How can I help?'); // Use new function
+                // Verificar se a URL está dentro de um bloco de código ou atributo HTML
+                if (isWithinCodeBlock(text, urlPosition) || 
+                    isWithinHTMLAttribute(text, urlPosition)) {
+                    continue;
                 }
+                
+                // Processar a URL para determinar se é uma imagem
+                const processedUrl = processImageURL(url);
+                
+                if (processedUrl.isImage) {
+                    validImages.push({ 
+                        url: processedUrl.url, 
+                        position: urlPosition,
+                        type: processedUrl.type || 'img'
+                    });
+                }
+            }
+            
+            // Retornar a primeira URL válida encontrada
+            return validImages.length > 0 ? validImages[0].url : null;
+        }
+
+        // Verificar se a URL está dentro de um atributo HTML como src ou href
+        function isWithinHTMLAttribute(text, position) {
+            // Procurar por padrões de atributos HTML antes da posição
+            const beforeText = text.substring(0, position);
+            const afterText = text.substring(position);
+            
+            // Verificar padrões como src="... ou href="...
+            if (/\b(src|href)\s*=\s*["']?[^"']*$/i.test(beforeText)) {
+                return true;
+            }
+            
+            // Verificar se estamos dentro de uma tag HTML
+            const openTagBefore = beforeText.lastIndexOf('<');
+            const closeTagBefore = beforeText.lastIndexOf('>');
+            const openTagAfter = afterText.indexOf('<');
+            const closeTagAfter = afterText.indexOf('>');
+            
+            // Se há uma tag aberta antes e fechada depois, estamos dentro de uma tag
+            if (openTagBefore > closeTagBefore && closeTagAfter >= 0 && 
+                (openTagAfter < 0 || closeTagAfter < openTagAfter)) {
+                return true;
+            }
+            
+            return false;
+        }
+
+        // Função para renderizar conteúdo especial como GIFs e imagens
+        function renderSpecialContent(text) {
+            if (!text) return '';
+            
+            // Primeiro passo: verificar se o texto completo é uma URL de imagem
+            if (/^https?:\/\/[^\s<>"']+\.(gif|jpe?g|png|webp|svg)(\?[^"'\s<>]*)?$/i.test(text.trim())) {
+                const url = text.trim();
+                
+                // Usar template string sem quebras de linha para evitar problemas
+                return `<div class="image-container"><img src="${url}" alt="Imagem" onerror="this.style.display='none'; this.parentNode.innerHTML='<div class=\\'image-placeholder\\'>Imagem não disponível</div>'"></div>`;
+            }
+            
+            // Segundo passo: processar markdown e encontrar imagens
+            const lines = text.split('\n');
+            const processedLines = [];
+            
+            for (const line of lines) {
+                // Verificar se a linha é uma imagem markdown
+                const imageMarkdown = line.match(/^!\[(.*?)\]\((https?:\/\/[^)]+)\)$/);
+                if (imageMarkdown) {
+                    const [_, alt, url] = imageMarkdown;
+                    // Usar template string sem quebras de linha
+                    processedLines.push(`<div class="image-container"><img src="${url}" alt="${alt || 'Imagem'}" onerror="this.style.display='none'; this.parentNode.innerHTML='<div class=\\'image-placeholder\\'>Imagem não disponível</div>'"></div>`);
+                    continue;
+                }
+                
+                // Verificar se a linha é uma URL de imagem
+                const imageUrl = line.match(/^(https?:\/\/[^\s]+\.(gif|jpe?g|png|webp|svg)(\?[^"'\s<>]*)?)$/i);
+                if (imageUrl) {
+                    const url = imageUrl[1];
+                    // Usar template string sem quebras de linha
+                    processedLines.push(`<div class="image-container"><img src="${url}" alt="Imagem" onerror="this.style.display='none'; this.parentNode.innerHTML='<div class=\\'image-placeholder\\'>Imagem não disponível</div>'"></div>`);
+                    continue;
+                }
+                
+                // Para outras linhas, apenas adicionar
+                processedLines.push(line);
+            }
+            
+            // Juntar as linhas processadas
+            const processedText = processedLines.join('\n');
+            
+            // Processar o resto do markdown
+            let processedHtml = renderMarkdown(processedText);
+            
+            // Procurar por URLs de imagem soltas no texto final
+            processedHtml = processedHtml.replace(/(https?:\/\/[^\s<>"']+\.(gif|jpe?g|png|webp|svg)(\?[^"'\s<>]*)?)/gi, function(match) {
+                // Verificar se já está dentro de uma tag img
+                if (processedHtml.indexOf(`<img src="${match}"`) >= 0 || 
+                    processedHtml.indexOf(`<img src='${match}'`) >= 0) {
+                    return match;
+                }
+                return `<img src="${match}" alt="Imagem" onerror="this.style.display='none'; this.parentNode.innerHTML='<div class=\\'image-placeholder\\'>Imagem não disponível</div>'">`;
+            });
+            
+            return processedHtml;
+        }
+
+        // Função para processar ![image](url) no Markdown
+        function processImageMarkdown(text) {
+            // Processar imagens - ![alt](url)
+            return text.replace(
+                /!\[([^\]]*)\]\((https?:\/\/[^)]+)\)/g, 
+                (match, alt, url) => {
+                    // Extrair extensão do arquivo para melhorar a tag alt
+                    const extension = url.toLowerCase().match(/\.(gif|jpe?g|png)(\?|$)/);
+                    const altText = alt || (extension ? extension[1].toUpperCase() : "Imagem");
+                    
+                    return `<img src="${url}" alt="${altText}" style="max-width:100%; border-radius:8px; display:block; margin:0 auto;" />`;
+                }
+            );
+        }
+
+        // Escape string para uso em regex
+        function escapeRegExp(string) {
+            return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        }
+
+        // Função para renderizar Markdown para HTML simples
+        function renderMarkdown(text) {
+            if (!text) return '';
+            
+            let html = text;
+            
+            // Armazenar temporariamente os marcadores de ação rápida
+            const quickActionMarkers = [];
+            let markerIndex = 0;
+            
+            // Preservar links de ação rápida - [texto](action:mensagem) ou [texto](acao:mensagem)
+            html = html.replace(/\[([^\]]+)\]\((action|acao):([^)]+)\)/g, (match) => {
+                const marker = `__QUICK_ACTION_LINK_${markerIndex++}__`;
+                quickActionMarkers.push({ marker, content: match });
+                return marker;
+            });
+            
+            // Preservar botões - [{button:texto|mensagem}] ou [{botao:texto|mensagem}]
+            html = html.replace(/\[\{(button|botao):([^|]+)\|([^|}\n]+)\}\]/gi, (match) => {
+                const marker = `__QUICK_ACTION_BUTTON_${markerIndex++}__`;
+                quickActionMarkers.push({ marker, content: match });
+                return marker;
+            });
+            
+            // Preservar listas de seleção - [{list:titulo|opção1:mensagem1|opção2:mensagem2}] ou [{lista:titulo|opção1:mensagem1|opção2:mensagem2}]
+            html = html.replace(/\[\{(list|lista):([^|]+)\|((?:[^|:]+:[^|:]+\|?)+)\}\]/g, (match) => {
+                const marker = `__QUICK_ACTION_SELECT_${markerIndex++}__`;
+                quickActionMarkers.push({ marker, content: match });
+                return marker;
+            });
+            
+            // Limpar espaços extras após processamento
+            html = html.trim();
+            
+            // Processar imagens markdown - ![alt](url)
+            html = processImageMarkdown(html);
+            
+            // Processar cabeçalhos
+            html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
+            html = html.replace(/^## (.+)$/gm, '<h2>$2</h2>');
+            html = html.replace(/^### (.+)$/gm, '<h3>$3</h3>');
+            
+            // Processar links - [texto](url)
+            html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
+            
+            // Processar negrito - **texto**
+            html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+            
+            // Processar itálico - *texto*
+            html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
+            
+            // Processar listas ordenadas em uma única passagem
+            html = html.replace(/(?:^\d+\.\s(.+)(?:\n|$))+/gm, function(match) {
+                const items = match.split('\n').filter(line => line.trim());
+                let counter = 1;
+                return '<ol>' + items.map(item => {
+                    // Extrair o número original da lista
+                    const originalNumber = parseInt(item.match(/^(\d+)\./)[1], 10);
+                    // Se houver um salto na numeração, atualizar o contador
+                    if (originalNumber > counter) {
+                        counter = originalNumber;
+                    }
+                    const content = item.replace(/^\d+\.\s+/, '');
+                    // Usar o valor do contador para a numeração
+                    const li = `<li value="${counter}">${content}</li>`;
+                    counter++;
+                    return li;
+                }).join('') + '</ol>';
+            });
+            
+            // Processar listas não ordenadas em uma única passagem
+            html = html.replace(/(?:^[\*\-]\s(.+)(?:\n|$))+/gm, function(match) {
+                const items = match.split('\n').filter(line => line.trim());
+                return '<ul>' + items.map(item => {
+                    const content = item.replace(/^[\*\-]\s+/, '');
+                    return `<li>${content}</li>`;
+                }).join('') + '</ul>';
+            });
+            
+            // Processar quebras de linha
+            html = html.replace(/\n\s*\n/g, '<br><br>');
+            html = html.replace(/\n/g, '<br>');
+            
+            // Restaurar os marcadores de ação rápida
+            quickActionMarkers.forEach(({ marker, content }) => {
+                html = html.replace(marker, content);
+            });
+            
+            return html;
+        }
+
+        // Função para mostrar uma mensagem do bot com suporte a markdown e conteúdo especial
+        function displayBotMessage(message, metadata) { 
+            const botMessageDiv = document.createElement('div');
+            botMessageDiv.className = 'chat-message bot';
+            
+            // Verificar se a mensagem contém somente uma URL de imagem
+            if (/^https?:\/\/[^\s<>"']+\.(gif|jpe?g|png|webp|svg)(\?[^"'\s<>]*)?$/i.test(message.trim())) {
+                const url = message.trim();
+                
+                // Criar elemento de imagem programaticamente para evitar problemas
+                const imageContainer = document.createElement('div');
+                imageContainer.className = 'image-container';
+                
+                const img = document.createElement('img');
+                img.src = url;
+                img.alt = 'Imagem';
+                
+                // Adicionar onerror handler como função em vez de string
+                img.onerror = function() {
+                    this.style.display = 'none';
+                    const placeholder = document.createElement('div');
+                    placeholder.className = 'image-placeholder';
+                    placeholder.textContent = 'Imagem não disponível';
+                    this.parentNode.innerHTML = '';
+                    this.parentNode.appendChild(placeholder);
+                };
+                
+                imageContainer.appendChild(img);
+                botMessageDiv.appendChild(imageContainer);
             } else {
-                debug('Resposta vazia do webhook');
-                responseMessage = getText('fallback', 'Hi! How can I help?'); // Use new function
-            }
-        } catch (error) {
-            debug('Erro ao processar JSON da resposta:', error, true);
-            responseMessage = getText('fallback', 'Hi! How can I help?'); // Use new function
-        }
-        
-        // Remover o indicador de digitação
-        hideTypingIndicator();
-        
-        // Mostrar a resposta do bot
-        displayBotMessage(responseMessage, metadata);
-    } catch (error) {
-        debug('Erro na chamada do webhook:', error, true);
-        hideTypingIndicator();
-        displayBotMessage(getText('error', 'Sorry, something went wrong.'), metadata); // Use new function for error message
-    }
-    }
-
-    // Função auxiliar para extrair URLs de imagem
-    function extractGifURL(text) {
-        if (!text) return null;
-        
-        // Encontrar todas as URLs no texto
-        const urlRegex = /https?:\/\/\S+/gi;
-        let match;
-        let validImages = [];
-        
-        while ((match = urlRegex.exec(text)) !== null) {
-            const url = match[0];
-            const urlPosition = match.index;
-            
-            // Verificar se a URL está dentro de um bloco de código ou atributo HTML
-            if (isWithinCodeBlock(text, urlPosition) || 
-                isWithinHTMLAttribute(text, urlPosition)) {
-                continue;
-            }
-            
-            // Processar a URL para determinar se é uma imagem
-            const processedUrl = processImageURL(url);
-            
-            if (processedUrl.isImage) {
-                validImages.push({ 
-                    url: processedUrl.url, 
-                    position: urlPosition,
-                    type: processedUrl.type || 'img'
-                });
-            }
-        }
-        
-        // Retornar a primeira URL válida encontrada
-        return validImages.length > 0 ? validImages[0].url : null;
-    }
-
-    // Verificar se a URL está dentro de um atributo HTML como src ou href
-    function isWithinHTMLAttribute(text, position) {
-        // Procurar por padrões de atributos HTML antes da posição
-        const beforeText = text.substring(0, position);
-        const afterText = text.substring(position);
-        
-        // Verificar padrões como src="... ou href="...
-        if (/\b(src|href)\s*=\s*["']?[^"']*$/i.test(beforeText)) {
-            return true;
-        }
-        
-        // Verificar se estamos dentro de uma tag HTML
-        const openTagBefore = beforeText.lastIndexOf('<');
-        const closeTagBefore = beforeText.lastIndexOf('>');
-        const openTagAfter = afterText.indexOf('<');
-        const closeTagAfter = afterText.indexOf('>');
-        
-        // Se há uma tag aberta antes e fechada depois, estamos dentro de uma tag
-        if (openTagBefore > closeTagBefore && closeTagAfter >= 0 && 
-            (openTagAfter < 0 || closeTagAfter < openTagAfter)) {
-            return true;
-        }
-        
-        return false;
-    }
-
-    // Função para renderizar conteúdo especial como GIFs e imagens
-    function renderSpecialContent(text) {
-        if (!text) return '';
-        
-        // Primeiro passo: verificar se o texto completo é uma URL de imagem
-        if (/^https?:\/\/[^\s<>"']+\.(gif|jpe?g|png|webp|svg)(\?[^"'\s<>]*)?$/i.test(text.trim())) {
-            const url = text.trim();
-            
-            // Usar template string sem quebras de linha para evitar problemas
-            return `<div class="image-container"><img src="${url}" alt="Imagem" onerror="this.style.display='none'; this.parentNode.innerHTML='<div class=\\'image-placeholder\\'>Imagem não disponível</div>'"></div>`;
-        }
-        
-        // Segundo passo: processar markdown e encontrar imagens
-        const lines = text.split('\n');
-        const processedLines = [];
-        
-        for (const line of lines) {
-            // Verificar se a linha é uma imagem markdown
-            const imageMarkdown = line.match(/^!\[(.*?)\]\((https?:\/\/[^)]+)\)$/);
-            if (imageMarkdown) {
-                const [_, alt, url] = imageMarkdown;
-                // Usar template string sem quebras de linha
-                processedLines.push(`<div class="image-container"><img src="${url}" alt="${alt || 'Imagem'}" onerror="this.style.display='none'; this.parentNode.innerHTML='<div class=\\'image-placeholder\\'>Imagem não disponível</div>'"></div>`);
-                continue;
-            }
-            
-            // Verificar se a linha é uma URL de imagem
-            const imageUrl = line.match(/^(https?:\/\/[^\s]+\.(gif|jpe?g|png|webp|svg)(\?[^"'\s<>]*)?)$/i);
-            if (imageUrl) {
-                const url = imageUrl[1];
-                // Usar template string sem quebras de linha
-                processedLines.push(`<div class="image-container"><img src="${url}" alt="Imagem" onerror="this.style.display='none'; this.parentNode.innerHTML='<div class=\\'image-placeholder\\'>Imagem não disponível</div>'"></div>`);
-                continue;
-            }
-            
-            // Para outras linhas, apenas adicionar
-            processedLines.push(line);
-        }
-        
-        // Juntar as linhas processadas
-        const processedText = processedLines.join('\n');
-        
-        // Processar o resto do markdown
-        let processedHtml = renderMarkdown(processedText);
-        
-        // Procurar por URLs de imagem soltas no texto final
-        processedHtml = processedHtml.replace(/(https?:\/\/[^\s<>"']+\.(gif|jpe?g|png|webp|svg)(\?[^"'\s<>]*)?)/gi, function(match) {
-            // Verificar se já está dentro de uma tag img
-            if (processedHtml.indexOf(`<img src="${match}"`) >= 0 || 
-                processedHtml.indexOf(`<img src='${match}'`) >= 0) {
-                return match;
-            }
-            return `<img src="${match}" alt="Imagem" onerror="this.style.display='none'; this.parentNode.innerHTML='<div class=\\'image-placeholder\\'>Imagem não disponível</div>'">`;
-        });
-        
-        return processedHtml;
-    }
-
-    // Função para processar ![image](url) no Markdown
-    function processImageMarkdown(text) {
-        // Processar imagens - ![alt](url)
-        return text.replace(
-            /!\[([^\]]*)\]\((https?:\/\/[^)]+)\)/g, 
-            (match, alt, url) => {
-                // Extrair extensão do arquivo para melhorar a tag alt
-                const extension = url.toLowerCase().match(/\.(gif|jpe?g|png)(\?|$)/);
-                const altText = alt || (extension ? extension[1].toUpperCase() : "Imagem");
+                // Processar objetos de ação rápida
+                const quickActions = processQuickActions(message);
+                console.log('[DEBUG] displayBotMessage quickActions:', quickActions);
+                // Renderizar mensagem normalmente com o texto processado
+                botMessageDiv.innerHTML = renderSpecialContent(quickActions.text);
                 
-                return `<img src="${url}" alt="${altText}" style="max-width:100%; border-radius:8px; display:block; margin:0 auto;" />`;
+                // Renderizar objetos de ação rápida, se houver
+                renderQuickActions(quickActions, botMessageDiv, metadata);
             }
-        );
-    }
-
-    // Escape string para uso em regex
-    function escapeRegExp(string) {
-        return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-    }
-
-    // Função para renderizar Markdown para HTML simples
-    function renderMarkdown(text) {
-        if (!text) return '';
-        
-        let html = text;
-        
-        // Armazenar temporariamente os marcadores de ação rápida
-        const quickActionMarkers = [];
-        let markerIndex = 0;
-        
-        // Preservar links de ação rápida - [texto](action:mensagem) ou [texto](acao:mensagem)
-        html = html.replace(/\[([^\]]+)\]\((action|acao):([^)]+)\)/g, (match) => {
-            const marker = `__QUICK_ACTION_LINK_${markerIndex++}__`;
-            quickActionMarkers.push({ marker, content: match });
-            return marker;
-        });
-        
-        // Preservar botões - [{button:texto|mensagem}] ou [{botao:texto|mensagem}]
-        html = html.replace(/\[\{(button|botao):([^|]+)\|([^|}\n]+)\}\]/gi, (match) => {
-            const marker = `__QUICK_ACTION_BUTTON_${markerIndex++}__`;
-            quickActionMarkers.push({ marker, content: match });
-            return marker;
-        });
-        
-        // Preservar listas de seleção - [{list:titulo|opção1:mensagem1|opção2:mensagem2}] ou [{lista:titulo|opção1:mensagem1|opção2:mensagem2}]
-        html = html.replace(/\[\{(list|lista):([^|]+)\|((?:[^|:]+:[^|:]+\|?)+)\}\]/g, (match) => {
-            const marker = `__QUICK_ACTION_SELECT_${markerIndex++}__`;
-            quickActionMarkers.push({ marker, content: match });
-            return marker;
-        });
-        
-        // Limpar espaços extras após processamento
-        html = html.trim();
-        
-        // Processar imagens markdown - ![alt](url)
-        html = processImageMarkdown(html);
-        
-        // Processar cabeçalhos
-        html = html.replace(/^# (.+)$/gm, '<h1>$1</h1>');
-        html = html.replace(/^## (.+)$/gm, '<h2>$2</h2>');
-        html = html.replace(/^### (.+)$/gm, '<h3>$3</h3>');
-        
-        // Processar links - [texto](url)
-        html = html.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank">$1</a>');
-        
-        // Processar negrito - **texto**
-        html = html.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
-        
-        // Processar itálico - *texto*
-        html = html.replace(/\*([^*]+)\*/g, '<em>$1</em>');
-        
-        // Processar listas ordenadas em uma única passagem
-        html = html.replace(/(?:^\d+\.\s(.+)(?:\n|$))+/gm, function(match) {
-            const items = match.split('\n').filter(line => line.trim());
-            let counter = 1;
-            return '<ol>' + items.map(item => {
-                // Extrair o número original da lista
-                const originalNumber = parseInt(item.match(/^(\d+)\./)[1], 10);
-                // Se houver um salto na numeração, atualizar o contador
-                if (originalNumber > counter) {
-                    counter = originalNumber;
-                }
-                const content = item.replace(/^\d+\.\s+/, '');
-                // Usar o valor do contador para a numeração
-                const li = `<li value="${counter}">${content}</li>`;
-                counter++;
-                return li;
-            }).join('') + '</ol>';
-        });
-        
-        // Processar listas não ordenadas em uma única passagem
-        html = html.replace(/(?:^[\*\-]\s(.+)(?:\n|$))+/gm, function(match) {
-            const items = match.split('\n').filter(line => line.trim());
-            return '<ul>' + items.map(item => {
-                const content = item.replace(/^[\*\-]\s+/, '');
-                return `<li>${content}</li>`;
-            }).join('') + '</ul>';
-        });
-        
-        // Processar quebras de linha
-        html = html.replace(/\n\s*\n/g, '<br><br>');
-        html = html.replace(/\n/g, '<br>');
-        
-        // Restaurar os marcadores de ação rápida
-        quickActionMarkers.forEach(({ marker, content }) => {
-            html = html.replace(marker, content);
-        });
-        
-        return html;
-    }
-
-    // Função para mostrar uma mensagem do bot com suporte a markdown e conteúdo especial
-    function displayBotMessage(message, metadata) { 
-        const botMessageDiv = document.createElement('div');
-        botMessageDiv.className = 'chat-message bot';
-        
-        // Verificar se a mensagem contém somente uma URL de imagem
-        if (/^https?:\/\/[^\s<>"']+\.(gif|jpe?g|png|webp|svg)(\?[^"'\s<>]*)?$/i.test(message.trim())) {
-            const url = message.trim();
             
-            // Criar elemento de imagem programaticamente para evitar problemas
-            const imageContainer = document.createElement('div');
-            imageContainer.className = 'image-container';
-            
-            const img = document.createElement('img');
-            img.src = url;
-            img.alt = 'Imagem';
-            
-            // Adicionar onerror handler como função em vez de string
-            img.onerror = function() {
-                this.style.display = 'none';
-                const placeholder = document.createElement('div');
-                placeholder.className = 'image-placeholder';
-                placeholder.textContent = 'Imagem não disponível';
-                this.parentNode.innerHTML = '';
-                this.parentNode.appendChild(placeholder);
-            };
-            
-            imageContainer.appendChild(img);
-            botMessageDiv.appendChild(imageContainer);
-        } else {
-            // Processar objetos de ação rápida
-            const quickActions = processQuickActions(message);
-            console.log('[DEBUG] displayBotMessage quickActions:', quickActions);
-            // Renderizar mensagem normalmente com o texto processado
-            botMessageDiv.innerHTML = renderSpecialContent(quickActions.text);
-            
-            // Renderizar objetos de ação rápida, se houver
-            renderQuickActions(quickActions, botMessageDiv, metadata);
+            messagesContainer.appendChild(botMessageDiv);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
         }
-        
-        messagesContainer.appendChild(botMessageDiv);
-        messagesContainer.scrollTop = messagesContainer.scrollHeight;
-    }
 
-    // Função para renderizar objetos de ação rápida
-    function renderQuickActions(quickActions, messageElement, metadata) { 
-        console.log('[DEBUG] renderQuickActions called:', quickActions, 'with metadata:', metadata);
-        if (!quickActions.hasQuickActions) return;
-        
-        // Handle single input/secret object
-        if (quickActions.input) {
-            const obj = quickActions.input;
-            const container = document.createElement('div');
-            container.className = 'quick-action-container';
-            const wrapper = document.createElement('div');
-            wrapper.style.display = 'flex';
-            wrapper.style.gap = '4px';
-            wrapper.style.marginTop = '10px';
-            wrapper.style.alignItems = 'center';
+        // Função para renderizar objetos de ação rápida
+        async function renderQuickActions(quickActions, messageElement, metadata) { 
+            console.log('[DEBUG] renderQuickActions called:', quickActions, 'with metadata:', metadata);
+            if (!quickActions.hasQuickActions) return;
             
-            let countrySelect = null;
-            let inEl = null; // Declare input element variable here
-            console.debug('[DEBUG] Rendering input/secret object:', obj);
-
-            if (obj.validation === 'phone') {
-                inEl = document.createElement('input'); 
-                inEl.type = 'text'; // Phone input is always text
-                inEl.placeholder = obj.placeholder;
-                if (obj.required) inEl.required = true;
-                inEl.style.flex = '1';
-                inEl.style.height = '40px';
-                inEl.style.paddingRight = '32px'; // room for tick
-
-                countrySelect = document.createElement('select');
-                countrySelect.className = 'phone-code-select';
-                // Full country list - v0.6.6: Include name in dropdown
-                phoneCountryList.forEach(({iso, name, dialCode}) => {
-                    const flag = iso.split('').map(c=>String.fromCodePoint(0x1f1e6 + c.charCodeAt(0)-65)).join('');
-                    const opt = document.createElement('option');
-                    opt.value = dialCode;
-                    // Display Flag + Name (+DialCode)
-                    opt.textContent = `${flag} ${name} (+${dialCode})`; 
-                    countrySelect.appendChild(opt);
-                });
-
-                // v0.6.7: Pre-select country based on detected location & prefill input
-                let prefilled = false;
-                if (metadata && metadata.detectedLocation) { 
-                    const detectedCountry = phoneCountryList.find(c => c.iso === metadata.detectedLocation.country); 
-                    if (detectedCountry) {
-                        countrySelect.value = detectedCountry.dialCode;
-                        inEl.value = '+' + detectedCountry.dialCode + ' '; // Prefill input
-                        debug('Pre-selected country based on metadata:', detectedCountry);
-                        prefilled = true;
-                    }
-                }
-                // Fallback to US (+1) if detection failed or country not found
-                if (!prefilled) {
-                    const fallbackCountry = phoneCountryList.find(c => c.iso === 'US');
-                    if (fallbackCountry) {
-                        countrySelect.value = fallbackCountry.dialCode;
-                        inEl.value = '+' + fallbackCountry.dialCode + ' '; // Prefill input with fallback
-                        debug('Pre-selected fallback country (US):', fallbackCountry);
-                    }
-                }
+            // Handle single input/secret object
+            if (quickActions.input) {
+                const obj = quickActions.input;
+                const container = document.createElement('div');
+                container.className = 'quick-action-container';
+                const wrapper = document.createElement('div');
+                wrapper.style.display = 'flex';
+                wrapper.style.gap = '4px';
+                wrapper.style.marginTop = '10px';
+                wrapper.style.alignItems = 'center';
                 
-                // Append select and input to wrapper *after* potential prefill
-                wrapper.appendChild(countrySelect);
-                wrapper.appendChild(inEl);
+                let countrySelect = null;
+                let inEl = null; // Declare input element variable here
+                console.debug('[DEBUG] Rendering input/secret object:', obj);
 
-                // Sync input/select listener
-                countrySelect.addEventListener('change', () => {
-                    const currentInput = wrapper.querySelector('input'); // Re-select inEl just in case
-                    if (!currentInput) return;
-                    const raw = currentInput.value.replace(/^\+/, '');
-                    currentInput.value = '+' + countrySelect.value + (raw ? ' ' + raw.replace(/^\d+\s*/, '') : '');
-                    currentInput.focus(); // Keep focus on input
-                });
-            
-            } else { // Handle non-phone inputs (secret or other text)
-                inEl = document.createElement('input'); 
-                inEl.type = obj.type === 'secret' ? 'password' : 'text';
-                inEl.placeholder = obj.placeholder;
-                if (obj.required) inEl.required = true;
-                inEl.style.flex = '1';
-                inEl.style.height = '40px';
-                inEl.style.paddingRight = '32px'; // room for tick
-                wrapper.appendChild(inEl);
-            }
-
-            // Tick container
-            const tick = document.createElement('span');
-            tick.className = 'valid-check';
-            tick.textContent = '✓';
-            tick.style.display = 'none';
-            tick.style.position = 'absolute';
-            // v0.6.4: further adjust green tick for phone input
-                // v0.6.5: move tick further left for phone input
-                tick.style.right = '55px'; // Position tick inside input padding to avoid send button
-            tick.style.top = '50%';
-            tick.style.transform = 'translateY(-50%)';
-            tick.style.color = 'green';
-            tick.style.pointerEvents = 'none';
-            tick.style.fontSize = '18px';
-            tick.style.zIndex = '2';
-            wrapper.style.position = 'relative';
-            wrapper.appendChild(tick);
-            const btn = document.createElement('button');
-            btn.className = 'quick-action-input-send';
-            btn.style.height = '40px';
-            btn.style.display = 'flex';
-            btn.style.alignItems = 'center';
-            btn.style.justifyContent = 'center';
-            btn.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M22 2L11 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-            wrapper.appendChild(btn);
-            textarea.disabled = true;
-            sendButton.disabled = true;
-            setTimeout(() => inEl.focus(), 50); // Focus after a short delay
-            // Append input/secret to message element so it is visible
-            container.appendChild(wrapper);
-            messageElement.appendChild(container);
-            // Live validation
-            inEl.addEventListener('input', () => {
-                let v = inEl.value;
-                let ok = true;
-                if (obj.required && !v) ok = false;
-                if (obj.validation === 'email' && v && !/^\S+@\S+\.\S+$/.test(v)) ok = false;
-                if (obj.validation === 'url' && v && !/^https?:\/\/.+/.test(v)) ok = false;
-                if (obj.validation === 'phone' && v) {
-                    v = v.replace(/^\+/, '');
-                    ok = phoneCountryList.some(c=> v.startsWith(c.dialCode)) && /^\d+$/.test(v);
-                }
-                tick.style.display = ok ? 'block' : 'none';
-                inEl.classList.toggle('invalid', !ok);
-                // Phone: update select
                 if (obj.validation === 'phone') {
-                    const v2 = inEl.value.replace(/^\+/, '');
-                    const found = phoneCountryList.find(c=> v2.startsWith(c.dialCode));
-                    if (found) countrySelect.value = found.dialCode;
-                }
-            });
-            btn.addEventListener('click', () => {
-                let v = inEl.value.trim();
-                if (obj.required && !v) {
-                    inEl.classList.add('invalid');
-                    setTimeout(() => inEl.classList.remove('invalid'), 1000);
-                    return;
-                }
-                if (obj.validation === 'email' && !/^\S+@\S+\.\S+$/.test(v)) {
-                    inEl.classList.add('invalid');
-                    setTimeout(() => inEl.classList.remove('invalid'), 1000);
-                    return;
-                }
-                if (obj.validation === 'url' && !/^https?:\/\/.+/.test(v)) {
-                    inEl.classList.add('invalid');
-                    setTimeout(() => inEl.classList.remove('invalid'), 1000);
-                    return;
-                }
-                if (obj.validation === 'phone') v = countrySelect.value + v;
-                const raw = obj.prefix + v;
-                const display = obj.type === 'secret' ? obj.prefix + '*'.repeat(v.length) : raw;
-                disableSmartObjectsInMessages();
-                textarea.disabled = false;
-                sendButton.disabled = false;
-                sendMessage(raw, { maskedMessage: display });
-            });
-            inEl.addEventListener('keydown', (e) => {
-                if (e.key === 'Enter') {
-                    e.preventDefault();
-                    btn.click();
-                }
-            });
-            return;
-        }
+                    inEl = document.createElement('input'); 
+                    inEl.type = 'text'; // Phone input is always text
+                    inEl.placeholder = obj.placeholder;
+                    if (obj.required) inEl.required = true;
+                    inEl.style.flex = '1';
+                    inEl.style.height = '40px';
+                    inEl.style.paddingRight = '32px'; // room for tick
 
-        // Processar links embutidos e adicionar ao texto da mensagem
-        if (quickActions.links.length > 0) {
-            const originalContent = messageElement.innerHTML;
-            let newContent = originalContent;
-            
-            quickActions.links.forEach(link => {
-                const linkHTML = `<a class="quick-action-link" data-action="${link.action}">${link.text}</a>`;
-                newContent += ' ' + linkHTML;
-            });
-            
-            messageElement.innerHTML = newContent;
-        }
-        
-        // Verificar se há botões ou listas de seleção
-        if (quickActions.buttons.length > 0 || quickActions.selectOptions.length > 0) {
-            const container = document.createElement('div');
-            container.className = 'quick-action-container';
-            
-            // Adicionar botões (limitado a 4)
-            if (quickActions.buttons.length > 0) {
-                quickActions.buttons.slice(0, 4).forEach(button => {
-                    const buttonElement = document.createElement('button');
-                    buttonElement.className = `quick-action-button ${button.type === 'external' ? 'external' : ''}`;
-                    buttonElement.textContent = button.text;
-                    buttonElement.dataset.action = button.action;
-                    buttonElement.dataset.type = button.type;
-                    buttonElement.tabIndex = 0;
-                    if (button.type === 'external') {
-                        // append icon
-                        const icon = document.createElement('span');
-                        icon.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 3h7m0 0v7m0-7L10 14m-4 0L3 7"/></svg>';
-                        buttonElement.appendChild(icon);
+                    countrySelect = document.createElement('select');
+                    countrySelect.className = 'phone-code-select';
+
+                    // Ensure country list is loaded before proceeding
+                    await phoneListLoadPromise;
+                    
+                    if (!Array.isArray(phoneCountryList)) {
+                        console.error("Phone country list is not available or not an array.");
+                        // Optionally display an error or disable the input
+                        return; // Prevent further execution if list is invalid
                     }
-                    container.appendChild(buttonElement);
+
+                    // Full country list - v0.6.6: Include name in dropdown
+                    phoneCountryList.forEach(({iso, name, dialCode}) => {
+                        const flag = iso.split('').map(c=>String.fromCodePoint(0x1f1e6 + c.charCodeAt(0)-65)).join('');
+                        const opt = document.createElement('option');
+                        opt.value = dialCode;
+                        // Display Flag + Name (+DialCode)
+                        opt.textContent = `${flag} ${name} (+${dialCode})`; 
+                        countrySelect.appendChild(opt);
+                    });
+
+                    // v0.6.7: Pre-select country based on detected location & prefill input
+                    let prefilled = false;
+                    if (metadata && metadata.detectedLocation) { 
+                        const detectedCountry = phoneCountryList.find(c => c.iso === metadata.detectedLocation.country); 
+                        if (detectedCountry) {
+                            countrySelect.value = detectedCountry.dialCode;
+                            inEl.value = '+' + detectedCountry.dialCode + ' '; // Prefill input
+                            debug('Pre-selected country based on metadata:', detectedCountry);
+                            prefilled = true;
+                        }
+                    }
+                    // Fallback to US (+1) if detection failed or country not found
+                    if (!prefilled) {
+                        const fallbackCountry = phoneCountryList.find(c => c.iso === 'US');
+                        if (fallbackCountry) {
+                            countrySelect.value = fallbackCountry.dialCode;
+                            inEl.value = '+' + fallbackCountry.dialCode + ' '; // Prefill input with fallback
+                            debug('Pre-selected fallback country (US):', fallbackCountry);
+                        }
+                    }
+                    
+                    // Append select and input to wrapper *after* potential prefill
+                    wrapper.appendChild(countrySelect);
+                    wrapper.appendChild(inEl);
+
+                    // Sync input/select listener
+                    countrySelect.addEventListener('change', () => {
+                        const currentInput = wrapper.querySelector('input'); // Re-select inEl just in case
+                        if (!currentInput) return;
+                        const raw = currentInput.value.replace(/^\+/, '');
+                        currentInput.value = '+' + countrySelect.value + (raw ? ' ' + raw.replace(/^\d+\s*/, '') : '');
+                        currentInput.focus(); // Keep focus on input
+                    });
+                
+                } else { // Handle non-phone inputs (secret or other text)
+                    inEl = document.createElement('input'); 
+                    inEl.type = obj.type === 'secret' ? 'password' : 'text';
+                    inEl.placeholder = obj.placeholder;
+                    if (obj.required) inEl.required = true;
+                    inEl.style.flex = '1';
+                    inEl.style.height = '40px';
+                    inEl.style.paddingRight = '32px'; // room for tick
+                    wrapper.appendChild(inEl);
+                }
+
+                // Tick container
+                const tick = document.createElement('span');
+                tick.className = 'valid-check';
+                tick.textContent = '✓';
+                tick.style.display = 'none';
+                tick.style.position = 'absolute';
+                // v0.6.4: further adjust green tick for phone input
+                    // v0.6.5: move tick further left for phone input
+                    tick.style.right = '55px'; // Position tick inside input padding to avoid send button
+                tick.style.top = '50%';
+                tick.style.transform = 'translateY(-50%)';
+                tick.style.color = 'green';
+                tick.style.pointerEvents = 'none';
+                tick.style.fontSize = '18px';
+                tick.style.zIndex = '2';
+                wrapper.style.position = 'relative';
+                wrapper.appendChild(tick);
+                const btn = document.createElement('button');
+                btn.className = 'quick-action-input-send';
+                btn.style.height = '40px';
+                btn.style.display = 'flex';
+                btn.style.alignItems = 'center';
+                btn.style.justifyContent = 'center';
+                btn.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M22 2L11 13" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M22 2L15 22L11 13L2 9L22 2Z" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+                wrapper.appendChild(btn);
+                textarea.disabled = true;
+                sendButton.disabled = true;
+                setTimeout(() => inEl.focus(), 50); // Focus after a short delay
+                // Append input/secret to message element so it is visible
+                container.appendChild(wrapper);
+                messageElement.appendChild(container);
+                // Live validation
+                inEl.addEventListener('input', () => {
+                    let v = inEl.value;
+                    let ok = true;
+                    if (obj.required && !v) ok = false;
+                    if (obj.validation === 'email' && v && !/^\S+@\S+\.\S+$/.test(v)) ok = false;
+                    if (obj.validation === 'url' && v && !/^https?:\/\/.+/.test(v)) ok = false;
+                    if (obj.validation === 'phone' && v) {
+                        v = v.replace(/^\+/, '');
+                        ok = phoneCountryList.some(c=> v.startsWith(c.dialCode)) && /^\d+$/.test(v);
+                    }
+                    tick.style.display = ok ? 'block' : 'none';
+                    inEl.classList.toggle('invalid', !ok);
+                    // Phone: update select
+                    if (obj.validation === 'phone') {
+                        const v2 = inEl.value.replace(/^\+/, '');
+                        const found = phoneCountryList.find(c=> v2.startsWith(c.dialCode));
+                        if (found) countrySelect.value = found.dialCode;
+                    }
                 });
+                btn.addEventListener('click', () => {
+                    let v = inEl.value.trim();
+                    if (obj.required && !v) {
+                        inEl.classList.add('invalid');
+                        setTimeout(() => inEl.classList.remove('invalid'), 1000);
+                        return;
+                    }
+                    if (obj.validation === 'email' && !/^\S+@\S+\.\S+$/.test(v)) {
+                        inEl.classList.add('invalid');
+                        setTimeout(() => inEl.classList.remove('invalid'), 1000);
+                        return;
+                    }
+                    if (obj.validation === 'url' && !/^https?:\/\/.+/.test(v)) {
+                        inEl.classList.add('invalid');
+                        setTimeout(() => inEl.classList.remove('invalid'), 1000);
+                        return;
+                    }
+                    if (obj.validation === 'phone') v = countrySelect.value + v;
+                    const raw = obj.prefix + v;
+                    const display = obj.type === 'secret' ? obj.prefix + '*'.repeat(v.length) : raw;
+                    disableSmartObjectsInMessages();
+                    textarea.disabled = false;
+                    sendButton.disabled = false;
+                    sendMessage(raw, { maskedMessage: display });
+                });
+                inEl.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') {
+                        e.preventDefault();
+                        btn.click();
+                    }
+                });
+                return;
+            }
+
+            // Processar links embutidos e adicionar ao texto da mensagem
+            if (quickActions.links.length > 0) {
+                const originalContent = messageElement.innerHTML;
+                let newContent = originalContent;
+                
+                quickActions.links.forEach(link => {
+                    const linkHTML = `<a class="quick-action-link" data-action="${link.action}">${link.text}</a>`;
+                    newContent += ' ' + linkHTML;
+                });
+                
+                messageElement.innerHTML = newContent;
             }
             
-            // Adicionar lista de seleção (apenas uma, se não houver botões)
-            if (quickActions.selectOptions.length > 0) {
-                const selectOption = quickActions.selectOptions[0];
-                const selectElement = document.createElement('select');
-                selectElement.className = 'quick-action-select';
+            // Verificar se há botões ou listas de seleção
+            if (quickActions.buttons.length > 0 || quickActions.selectOptions.length > 0) {
+                const container = document.createElement('div');
+                container.className = 'quick-action-container';
                 
-                // Opção padrão com o título
-                const defaultOption = document.createElement('option');
-                defaultOption.value = '';
-                defaultOption.textContent = selectOption.title;
-                defaultOption.disabled = true;
-                defaultOption.selected = true;
-                selectElement.appendChild(defaultOption);
+                // Adicionar botões (limitado a 4)
+                if (quickActions.buttons.length > 0) {
+                    quickActions.buttons.slice(0, 4).forEach(button => {
+                        const buttonElement = document.createElement('button');
+                        buttonElement.className = `quick-action-button ${button.type === 'external' ? 'external' : ''}`;
+                        buttonElement.textContent = button.text;
+                        buttonElement.dataset.action = button.action;
+                        buttonElement.dataset.type = button.type;
+                        buttonElement.tabIndex = 0;
+                        if (button.type === 'external') {
+                            // append icon
+                            const icon = document.createElement('span');
+                            icon.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 3h7m0 0v7m0-7L10 14m-4 0L3 7"/></svg>';
+                            buttonElement.appendChild(icon);
+                        }
+                        container.appendChild(buttonElement);
+                    });
+                }
                 
-                // Adicionar opções da lista
-                selectOption.options.forEach(option => {
-                    const optionElement = document.createElement('option');
-                    optionElement.value = option.action;
-                    optionElement.textContent = option.text;
-                    optionElement.dataset.type = option.type;
-                    selectElement.appendChild(optionElement);
-                });
+                // Adicionar lista de seleção (apenas uma, se não houver botões)
+                if (quickActions.selectOptions.length > 0) {
+                    const selectOption = quickActions.selectOptions[0];
+                    const selectElement = document.createElement('select');
+                    selectElement.className = 'quick-action-select';
+                    
+                    // Opção padrão com o título
+                    const defaultOption = document.createElement('option');
+                    defaultOption.value = '';
+                    defaultOption.textContent = selectOption.title;
+                    defaultOption.disabled = true;
+                    defaultOption.selected = true;
+                    selectElement.appendChild(defaultOption);
+                    
+                    // Adicionar opções da lista
+                    selectOption.options.forEach(option => {
+                        const optionElement = document.createElement('option');
+                        optionElement.value = option.action;
+                        optionElement.textContent = option.text;
+                        optionElement.dataset.type = option.type;
+                        selectElement.appendChild(optionElement);
+                    });
+                    
+                    container.appendChild(selectElement);
+                }
                 
-                container.appendChild(selectElement);
+                messageElement.appendChild(container);
             }
             
-            messageElement.appendChild(container);
+            // Adicionar event listeners para os objetos de ação rápida
+            addQuickActionEventListeners(messageElement);
         }
         
-        // Adicionar event listeners para os objetos de ação rápida
-        addQuickActionEventListeners(messageElement);
-    }
-    
-    // Função para adicionar event listeners aos objetos de ação rápida
-    // Disable all interactive smart objects in previous messages
-    function disableSmartObjectsInMessages() {
-        document.querySelectorAll('.chat-message.bot, .chat-message.user').forEach(msg => {
-            msg.querySelectorAll('button, select, input, a.quick-action-link').forEach(el => {
-                el.disabled = true;
-                el.classList.add('disabled');
-                el.tabIndex = -1;
+        // Função para adicionar event listeners aos objetos de ação rápida
+        // Disable all interactive smart objects in previous messages
+        function disableSmartObjectsInMessages() {
+            document.querySelectorAll('.chat-message.bot, .chat-message.user').forEach(msg => {
+                msg.querySelectorAll('button, select, input, a.quick-action-link').forEach(el => {
+                    el.disabled = true;
+                    el.classList.add('disabled');
+                    el.tabIndex = -1;
+                });
             });
-        });
-    }
+        }
 
-    function addQuickActionEventListeners(element) {
-        // Event listener para botões
-        element.querySelectorAll('.quick-action-button').forEach(button => {
-            button.addEventListener('click', function() {
-                const action = this.dataset.action;
-                const type = this.dataset.type;
-                
-                if (action) {
-                    if (type === 'external') {
-                        window.open(action, '_blank');
-                    } else {
+        function addQuickActionEventListeners(element) {
+            // Event listener para botões
+            element.querySelectorAll('.quick-action-button').forEach(button => {
+                button.addEventListener('click', function() {
+                    const action = this.dataset.action;
+                    const type = this.dataset.type;
+                    
+                    if (action) {
+                        if (type === 'external' && isValidUrl(action)) {
+                            window.open(action, '_blank');
+                        } else {
+                            disableSmartObjectsInMessages();
+                            sendMessage(action);
+                        }
+                    }
+                });
+            });
+            
+            // Event listener para links
+            element.querySelectorAll('.quick-action-link').forEach(link => {
+                link.addEventListener('click', function(e) {
+                    e.preventDefault();
+                    const action = this.dataset.action;
+                    if (action) {
                         disableSmartObjectsInMessages();
                         sendMessage(action);
                     }
-                }
+                });
             });
-        });
-        
-        // Event listener para links
-        element.querySelectorAll('.quick-action-link').forEach(link => {
-            link.addEventListener('click', function(e) {
-                e.preventDefault();
-                const action = this.dataset.action;
-                if (action) {
-                    disableSmartObjectsInMessages();
-                    sendMessage(action);
-                }
-            });
-        });
-        
-        // Event listener para listas de seleção
-        element.querySelectorAll('.quick-action-select').forEach(select => {
-            select.addEventListener('change', function() {
-                const action = this.value;
-                const selectedOption = this.options[this.selectedIndex];
-                const type = selectedOption.dataset.type;
-                
-                if (action) {
-                    if (type === 'external') {
-                        window.open(action, '_blank');
-                    } else {
-                        sendMessage(action);
+            
+            // Event listener para listas de seleção
+            element.querySelectorAll('.quick-action-select').forEach(select => {
+                select.addEventListener('change', function() {
+                    const action = this.value;
+                    const selectedOption = this.options[this.selectedIndex];
+                    const type = selectedOption.dataset.type;
+                    
+                    if (action) {
+                        if (type === 'external' && isValidUrl(action)) {
+                            window.open(action, '_blank');
+                        } else {
+                            sendMessage(action);
+                        }
+                        // Resetar a seleção após enviar a mensagem
+                        this.selectedIndex = 0;
                     }
-                    // Resetar a seleção após enviar a mensagem
-                    this.selectedIndex = 0;
-                }
+                });
             });
+        }
+
+        // Modificar o handler do botão new-chat-btn
+        if (newChatBtn) {
+            newChatBtn.addEventListener('click', async function(e) {
+            e.preventDefault();
+
+            // Apenas esconder a tela de nova conversa, mantendo o cabeçalho
+            chatContainer.querySelector('.new-conversation').style.display = 'none';
+            chatInterface.classList.add('active');
+
+            // Clear any previous messages if starting fresh
+            messagesContainer.innerHTML = ''; // Clear messages to ensure only the greeting appears
+
+            // *Don't* add the "connecting" message here directly.
+            // Let startNewConversation handle the indicator and final message.
+
+            // Iniciar a conversa (which will show indicator and then the greeting)
+            try {
+                await startNewConversation();
+                // Focar na caixa de texto após a conversa ser inicializada com sucesso
+                setTimeout(function() {
+                    textarea.focus();
+                }, 100);
+            } catch (error) {
+                // Error handling inside startNewConversation already displays the fallback greeting.
+            }
         });
+    } else {
+        debug('newChatBtn not found, cannot attach listener.');
     }
 
-    // Modificar o handler do botão new-chat-btn
-    if (newChatBtn) {
-        newChatBtn.addEventListener('click', async function(e) {
-        e.preventDefault();
-
-        // Apenas esconder a tela de nova conversa, mantendo o cabeçalho
-        chatContainer.querySelector('.new-conversation').style.display = 'none';
-        chatInterface.classList.add('active');
-
-        // Clear any previous messages if starting fresh
-        messagesContainer.innerHTML = ''; // Clear messages to ensure only the greeting appears
-
-        // *Don't* add the "connecting" message here directly.
-        // Let startNewConversation handle the indicator and final message.
-
-        // Iniciar a conversa (which will show indicator and then the greeting)
-        try {
-            await startNewConversation();
-            // Focar na caixa de texto após a conversa ser inicializada com sucesso
-            setTimeout(function() {
-                textarea.focus();
-            }, 100);
-        } catch (error) {
-            // Error handling inside startNewConversation already displays the fallback greeting.
-        }
-    });
-} else {
-    debug('newChatBtn not found, cannot attach listener.');
-}
-
-    sendButton.addEventListener('click', () => {
-        const message = textarea.value.trim();
-        if (message) {
-            sendMessage(message);
-            textarea.value = '';
-        }
-    });
-    
-    textarea.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter' && !e.shiftKey) {
-            e.preventDefault();
+        sendButton.addEventListener('click', () => {
             const message = textarea.value.trim();
             if (message) {
                 sendMessage(message);
                 textarea.value = '';
             }
-        }
-    });
-    
-    toggleButton.addEventListener('click', () => {
-        debug('Botão de chat clicado');
-        const isOpen = chatContainer.classList.contains('open');
-        const isFirstTime = !currentSessionId;
+        });
+        
+        textarea.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                const message = textarea.value.trim();
+                if (message) {
+                    sendMessage(message);
+                    textarea.value = '';
+                }
+            }
+        });
+        
+        toggleButton.addEventListener('click', () => {
+            debug('Botão de chat clicado');
+            const isOpen = chatContainer.classList.contains('open');
+            const isFirstTime = !currentSessionId;
 
-        if (!isOpen) {
-            // Abrindo o chat
-            chatContainer.classList.add('open');
-            hideProactivePrompt(); // Esconder prompt se estiver visível
+            if (!isOpen) {
+                // Abrindo o chat
+                chatContainer.classList.add('open');
+                hideProactivePrompt(); // Esconder prompt se estiver visível
 
-            if (config.skipWelcomeScreen && isFirstTime) {
-                 // Pular tela de boas-vindas e iniciar direto
-                debug('Pulando tela de boas-vindas');
-                chatContainer.querySelector('.new-conversation').style.display = 'none';
-                chatInterface.classList.add('active');
-
-                // Clear any previous messages
-                messagesContainer.innerHTML = '';
-
-                // *Don't* add the "connecting" message here directly.
-                // Let startNewConversation handle the indicator and final message.
-
-                startNewConversation()
-                    .then(() => setTimeout(() => textarea.focus(), 100))
-                    .catch((error) => {
-                        console.error("[DEBUG] startNewConversation().catch block triggered. Error object:", error); // Added log
-                        console.error("[DEBUG] Error message:", error?.message); // Added log
-                        console.error("[DEBUG] Error stack:", error?.stack); // Added log
-                        debug('Erro ao iniciar conversa (skip welcome):', error, true);
-                        // Error handling inside startNewConversation already displays the fallback greeting.
-                        if (typeof config.onError === 'function') config.onError(error);
-                        setTimeout(() => textarea.focus(), 100);
-                    });
-            } else if (!isFirstTime) {
-                // Re-opening an existing chat, just focus
-                // Ensure chat interface is active if it wasn't already
-                if (!chatInterface.classList.contains('active')) {
+                if (config.skipWelcomeScreen && isFirstTime) {
+                    // Pular tela de boas-vindas e iniciar direto
+                    debug('Pulando tela de boas-vindas');
                     chatContainer.querySelector('.new-conversation').style.display = 'none';
                     chatInterface.classList.add('active');
-                 }
-                setTimeout(() => textarea.focus(), 100);
-            } else {
-                // Opening for the first time WITHOUT skipWelcomeScreen
-                // Show the welcome screen explicitly if it was hidden
-                chatContainer.querySelector('.new-conversation').style.display = 'block'; // Changed from flex to block if needed
-                chatInterface.classList.remove('active');
-                 // Ensure messages are cleared for a clean welcome screen
-                messagesContainer.innerHTML = '';
-            }
-        } else {
-            // Fechando o chat
-            chatContainer.classList.remove('open');
-        }
 
-        debug('Classe open ' + (chatContainer.classList.contains('open') ? 'adicionada' : 'removida'));
-    });
+                    // Clear any previous messages
+                    messagesContainer.innerHTML = '';
 
-    // Add close button handlers
-    const closeButtons = chatContainer.querySelectorAll('.close-button');
-    debug('Encontrados ' + closeButtons.length + ' botões de fechar');
-    closeButtons.forEach(button => {
-        button.addEventListener('click', () => {
-            debug('Botão de fechar clicado');
-            chatContainer.classList.remove('open');
-        });
-    });
+                    // *Don't* add the "connecting" message here directly.
+                    // Let startNewConversation handle the indicator and final message.
 
-    // Adicionar handlers para os novos botões
-    const expandButton = chatContainer.querySelector('.expand-button');
-    const fontSizeButton = chatContainer.querySelector('.font-size-button'); // Obter o novo botão
-    expandButton.addEventListener('click', () => {
-        chatContainer.classList.toggle('expanded');
-        // Focus input after expanding/collapsing
-        setTimeout(() => textarea.focus(), 50); 
-    });
-
-    // Lógica do botão de tamanho de fonte
-    currentFontSizeIndex = fontSizes.indexOf(widgetContainer.dataset.fontSize || 'medium');
-    // Aplicar tamanho inicial (small)
-    widgetContainer.classList.add('font-size-sm');
-
-    fontSizeButton.addEventListener('click', () => {
-        // Remover classe de tamanho atual
-        widgetContainer.classList.remove(`font-size-${fontSizes[currentFontSizeIndex]}`);
-        
-        // Calcular próximo índice
-        currentFontSizeIndex = (currentFontSizeIndex + 1) % fontSizes.length;
-        
-        // Adicionar nova classe de tamanho
-        const newSizeClass = `font-size-${fontSizes[currentFontSizeIndex]}`;
-        widgetContainer.classList.add(newSizeClass);
-        debug(`Tamanho da fonte alterado para: ${fontSizes[currentFontSizeIndex]}`);
-        // Focus input after changing font size
-        setTimeout(() => textarea.focus(), 50);
-    });
-
-    // Expor método de debug global
-    window.enableN8nChatDebug = function() {
-        window.n8nChatDebug = true;
-        console.log('[n8n Chat Widget] Debug mode enabled. Refresh the page to see detailed logs.');
-        return 'Debug mode enabled. Refresh the page to see detailed logs.';
-    };
-
-    // Função para criar e mostrar o balão de prompt proativo
-    function createProactivePrompt() {
-        if (!config.proactivePrompt.enabled || proactivePromptElement) return;
-
-        // Usar a nova função para obter a mensagem correta
-        const promptMessage = getProactiveMessage(); 
-        
-        proactivePromptElement = document.createElement('div');
-        proactivePromptElement.className = `proactive-prompt${config.style.position === 'left' ? ' position-left' : ''}`;
-        proactivePromptElement.innerHTML = `
-            ${promptMessage}
-            <button class="close-prompt" title="Fechar" style="color: ${config.style.secondaryColor}">×</button>
-        `;
-        
-        widgetContainer.appendChild(proactivePromptElement);
-
-                // Add listener for clicking the prompt itself to open chat
-        proactivePromptElement.addEventListener('click', () => {
-            debug('Proactive prompt clicked!'); 
-            toggleChat(); 
-            hideProactivePrompt(); 
-        });
-        proactivePromptElement.style.cursor = 'pointer'; // Indicate it's clickable
-
-        // Adicionar listener para fechar o prompt
-        const closePromptButton = proactivePromptElement.querySelector('.close-prompt');
-        closePromptButton.addEventListener('click', (e) => {
-            e.stopPropagation(); // Impedir que o clique feche o chat se o prompt estiver sobre o botão
-            hideProactivePrompt();
-        });
-        
-        // Forçar reflow para garantir a animação
-        void proactivePromptElement.offsetWidth;
-        
-        proactivePromptElement.classList.add('show');
-        debug('Prompt proativo exibido');
-    }
-
-    // Função para esconder e remover o balão de prompt proativo
-    function hideProactivePrompt() {
-        if (proactivePromptElement) {
-            proactivePromptElement.classList.remove('show');
-            // Remover o elemento após a animação de fade out
-            setTimeout(() => {
-                if (proactivePromptElement) {
-                    proactivePromptElement.remove();
-                    proactivePromptElement = null;
-                    debug('Prompt proativo removido');
+                    startNewConversation()
+                        .then(() => setTimeout(() => textarea.focus(), 100))
+                        .catch((error) => {
+                            console.error("[DEBUG] startNewConversation().catch block triggered. Error object:", error); // Added log
+                            console.error("[DEBUG] Error message:", error?.message); // Added log
+                            console.error("[DEBUG] Error stack:", error?.stack); // Added log
+                            debug('Erro ao iniciar conversa (skip welcome):', error, true);
+                            // Error handling inside startNewConversation already displays the fallback greeting.
+                            if (typeof config.onError === 'function') config.onError(error);
+                            setTimeout(() => textarea.focus(), 100);
+                        });
+                } else if (!isFirstTime) {
+                    // Re-opening an existing chat, just focus
+                    // Ensure chat interface is active if it wasn't already
+                    if (!chatInterface.classList.contains('active')) {
+                        chatContainer.querySelector('.new-conversation').style.display = 'none';
+                        chatInterface.classList.add('active');
+                    }
+                    setTimeout(() => textarea.focus(), 100);
+                } else {
+                    // Opening for the first time WITHOUT skipWelcomeScreen
+                    // Show the welcome screen explicitly if it was hidden
+                    chatContainer.querySelector('.new-conversation').style.display = 'block'; // Changed from flex to block if needed
+                    chatInterface.classList.remove('active');
+                    // Ensure messages are cleared for a clean welcome screen
+                    messagesContainer.innerHTML = '';
                 }
-            }, 400); // Tempo correspondente à transição CSS
-        }
-        // Limpar o timeout se o usuário interagir antes
-        clearTimeout(proactivePromptTimeout);
-    }
-
-    // Agendar a exibição do prompt proativo
-    if (config.proactivePrompt.enabled) {
-        proactivePromptTimeout = setTimeout(() => {
-            // Verificar se o chat já está aberto
-            if (!chatContainer.classList.contains('open')) {
-                createProactivePrompt();
-            }
-        }, config.proactivePrompt.delay);
-        debug(`Prompt proativo agendado para ${config.proactivePrompt.delay / 1000}s`);
-    }
-
-    // Função para obter mensagem de saudação traduzida (REVISADA - Simplified)
-    function getGreetingMessage() {
-        let message;
-        // Priority: User Config (Full > Base > EN) -> Default Config (Full > Base > EN) -> fallback
-        const userMsg = config.greetingMessage;
-        const defaultMsg = defaultConfig.greetingMessage;
-
-        if (userMsg && userMsg[detectedLang] !== undefined) message = userMsg[detectedLang];
-        else if (userMsg && userMsg[baseLang] !== undefined) message = userMsg[baseLang];
-        else if (userMsg && userMsg['en'] !== undefined) message = userMsg['en'];
-        else if (defaultMsg && defaultMsg[detectedLang] !== undefined) message = defaultMsg[detectedLang];
-        else if (defaultMsg && defaultMsg[baseLang] !== undefined) message = defaultMsg[baseLang];
-        else if (defaultMsg && defaultMsg['en'] !== undefined) message = defaultMsg['en'];
-        else message = "Hi there!"; // Absolute last fallback
-
-        debug('[getGreetingMessage] Mensagem final escolhida:', message);
-        return message;
-     }
-
-     // Função para obter mensagem do prompt proativo traduzida (REVISADA - Simplified)
-     function getProactiveMessage() {
-        let message;
-        // Priority: User Config (Full > Base > EN) -> Default Config (Full > Base > EN) -> fallback
-        const userPrompt = config.proactivePrompt?.message; // Use optional chaining
-        const defaultPrompt = defaultConfig.proactivePrompt?.message;
-
-        if (userPrompt && userPrompt[detectedLang] !== undefined) message = userPrompt[detectedLang];
-        else if (userPrompt && userPrompt[baseLang] !== undefined) message = userPrompt[baseLang];
-        else if (userPrompt && userPrompt['en'] !== undefined) message = userPrompt['en'];
-        else if (defaultPrompt && defaultPrompt[detectedLang] !== undefined) message = defaultPrompt[detectedLang];
-        else if (defaultPrompt && defaultPrompt[baseLang] !== undefined) message = defaultPrompt[baseLang];
-        else if (defaultPrompt && defaultPrompt['en'] !== undefined) message = defaultPrompt['en'];
-        else message = "Chat with us!"; // Absolute last fallback
-
-        debug('[getProactiveMessage] Mensagem final escolhida:', message);
-        return message;
-     }
-
-    // --- Location Detection Function ---
-    async function fetchUserLocation() {
-        console.log("[DEBUG] fetchUserLocation: START"); // Added log
-        let locationResult = null; // Store result to dispatch event later
-        try {
-            if (!config.detectLocation) {
-                debug('Location detection is disabled by config.');
-                return null;
-            }
-
-            // Use ipinfo.io for location detection (free tier available)
-            const geoApiUrl = 'https://ipinfo.io/json';
-            debug(`Fetching location from: ${geoApiUrl}`);
-
-            const response = await fetch(geoApiUrl);
-            if (!response.ok) {
-                // Handle potential errors like rate limits or API issues
-                console.error(`Geo API error: ${response.status} - ${response.statusText}`);
-                throw new Error(`Geo API error: ${response.status}`);
-            }
-            const locationData = await response.json();
-            debug('Fetched location data:', locationData);
-
-            // Extract relevant fields (city, country) - Adjust if API changes
-            if (locationData && locationData.city && locationData.country) {
-                 locationResult = { city: locationData.city, country: locationData.country };
             } else {
-                 console.warn('[n8n Chat Widget] Geo API response missing expected fields (city, country).', locationData);
-                 locationResult = null; // Or set to a partial object if desired
+                // Fechando o chat
+                chatContainer.classList.remove('open');
             }
 
-        } catch (error) {
-            console.error("[DEBUG] fetchUserLocation: CAUGHT ERROR", error); // Added log
-            debug('Error fetching user location:', error, true);
-            locationResult = null; // Ensure result is null on error
-        }
-        finally {
-             // Dispatch custom event with the detected location (or null)
-             const event = new CustomEvent('n8nLocationDetected', { detail: locationResult });
-             document.body.dispatchEvent(event);
-             debug('Dispatched n8nLocationDetected event with detail:', locationResult);
-             console.log("[DEBUG] fetchUserLocation: FINALLY, returning", locationResult); // Added log
-             return locationResult; // Return the result for getMetadata
-        }
-    }
+            debug('Classe open ' + (chatContainer.classList.contains('open') ? 'adicionada' : 'removida'));
+        });
 
-    // --- Metadata Gathering Function ---
-    async function getMetadata() {
-        console.log("[DEBUG] getMetadata: START"); // Added log
-        let locationData = null;
-        if (config.detectLocation && !config.metadata?.detectedLocation) { // Only fetch if enabled and not overridden
-            locationData = await fetchUserLocation();
-        }
+        // Add close button handlers
+        const closeButtons = chatContainer.querySelectorAll('.close-button');
+        debug('Encontrados ' + closeButtons.length + ' botões de fechar');
+        closeButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                debug('Botão de fechar clicado');
+                chatContainer.classList.remove('open');
+            });
+        });
 
-        // Detect timezone using Intl API if not overridden
-        let timezone = config.metadata?.detectedTimeZone; // Check override first
-        if (!timezone) {
-            try {
-                timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-            } catch (e) {
-                debug('Could not detect browser timezone.', e, true);
-                timezone = null; // Set to null if detection fails
-            }
-        }
+        // Adicionar handlers para os novos botões
+        const expandButton = chatContainer.querySelector('.expand-button');
+        const fontSizeButton = chatContainer.querySelector('.font-size-button'); // Obter o novo botão
+        expandButton.addEventListener('click', () => {
+            chatContainer.classList.toggle('expanded');
+            // Focus input after expanding/collapsing
+            setTimeout(() => textarea.focus(), 50); 
+        });
 
-        const finalMetadata = {
-            // Priority: Config Override > Detected/Default
-            userId: config.metadata?.userId || '', // Default empty
-            userEmail: config.metadata?.userEmail || '', // Default empty
-            userLanguage: config.metadata?.language || detectedLang, // Default detectedLang
-            baseUrl: config.metadata?.baseUrl || window.location.origin, // Default window origin
-            detectedLocation: config.metadata?.detectedLocation || locationData, // Default fetched data (or null)
-            detectedTimeZone: timezone, // Use detected/overridden timezone
-            timestamp: new Date().toISOString() // Always add current timestamp
+        // Lógica do botão de tamanho de fonte
+        currentFontSizeIndex = fontSizes.indexOf(widgetContainer.dataset.fontSize || 'medium');
+        // Aplicar tamanho inicial (small)
+        widgetContainer.classList.add('font-size-sm');
+
+        fontSizeButton.addEventListener('click', () => {
+            // Remover classe de tamanho atual
+            widgetContainer.classList.remove(`font-size-${fontSizes[currentFontSizeIndex]}`);
+            
+            // Calcular próximo índice
+            currentFontSizeIndex = (currentFontSizeIndex + 1) % fontSizes.length;
+            
+            // Adicionar nova classe de tamanho
+            const newSizeClass = `font-size-${fontSizes[currentFontSizeIndex]}`;
+            widgetContainer.classList.add(newSizeClass);
+            debug(`Tamanho da fonte alterado para: ${fontSizes[currentFontSizeIndex]}`);
+            // Focus input after changing font size
+            setTimeout(() => textarea.focus(), 50);
+        });
+
+        // Expor método de debug global
+        window.enableN8nChatDebug = function() {
+            window.n8nChatDebug = true;
+            console.log('[n8n Chat Widget] Debug mode enabled. Refresh the page to see detailed logs.');
+            return 'Debug mode enabled. Refresh the page to see detailed logs.';
         };
 
-        debug('Final metadata object:', finalMetadata);
-        console.log("[DEBUG] getMetadata: SUCCESS, returning metadata"); // Added log
-        return finalMetadata;
+        // Função para criar e mostrar o balão de prompt proativo
+        function createProactivePrompt() {
+            if (!config.proactivePrompt.enabled || proactivePromptElement) return;
+
+            // Usar a nova função para obter a mensagem correta
+            const promptMessage = getProactiveMessage(); 
+            
+            proactivePromptElement = document.createElement('div');
+            proactivePromptElement.className = `proactive-prompt${config.style.position === 'left' ? ' position-left' : ''}`;
+            proactivePromptElement.innerHTML = `
+                ${promptMessage}
+                <button class="close-prompt" title="Fechar" style="color: ${config.style.secondaryColor}">×</button>
+            `;
+            
+            widgetContainer.appendChild(proactivePromptElement);
+
+                    // Add listener for clicking the prompt itself to open chat
+            proactivePromptElement.addEventListener('click', () => {
+                debug('Proactive prompt clicked!'); 
+                toggleChat(); 
+                hideProactivePrompt(); 
+            });
+            proactivePromptElement.style.cursor = 'pointer'; // Indicate it's clickable
+
+            // Adicionar listener para fechar o prompt
+            const closePromptButton = proactivePromptElement.querySelector('.close-prompt');
+            closePromptButton.addEventListener('click', (e) => {
+                e.stopPropagation(); // Impedir que o clique feche o chat se o prompt estiver sobre o botão
+                hideProactivePrompt();
+            });
+            
+            // Forçar reflow para garantir a animação
+            void proactivePromptElement.offsetWidth;
+            
+            proactivePromptElement.classList.add('show');
+            debug('Prompt proativo exibido');
+        }
+
+        // Função para esconder e remover o balão de prompt proativo
+        function hideProactivePrompt() {
+            if (proactivePromptElement) {
+                proactivePromptElement.classList.remove('show');
+                // Remover o elemento após a animação de fade out
+                setTimeout(() => {
+                    if (proactivePromptElement) {
+                        proactivePromptElement.remove();
+                        proactivePromptElement = null;
+                        debug('Prompt proativo removido');
+                    }
+                }, 400); // Tempo correspondente à transição CSS
+            }
+            // Limpar o timeout se o usuário interagir antes
+            clearTimeout(proactivePromptTimeout);
+        }
+
+        // Agendar a exibição do prompt proativo
+        if (config.proactivePrompt.enabled) {
+            proactivePromptTimeout = setTimeout(() => {
+                // Verificar se o chat já está aberto
+                if (!chatContainer.classList.contains('open')) {
+                    createProactivePrompt();
+                }
+            }, config.proactivePrompt.delay);
+            debug(`Prompt proativo agendado para ${config.proactivePrompt.delay / 1000}s`);
+        }
+
+        // Função para obter mensagem de saudação traduzida (REVISADA - Simplified)
+        function getGreetingMessage() {
+            let message;
+            // Priority: User Config (Full > Base > EN) -> Default Config (Full > Base > EN) -> fallback
+            const userMsg = config.greetingMessage;
+            const defaultMsg = defaultConfig.greetingMessage;
+
+            if (userMsg && userMsg[detectedLang] !== undefined) message = userMsg[detectedLang];
+            else if (userMsg && userMsg[baseLang] !== undefined) message = userMsg[baseLang];
+            else if (userMsg && userMsg['en'] !== undefined) message = userMsg['en'];
+            else if (defaultMsg && defaultMsg[detectedLang] !== undefined) message = defaultMsg[detectedLang];
+            else if (defaultMsg && defaultMsg[baseLang] !== undefined) message = defaultMsg[baseLang];
+            else if (defaultMsg && defaultMsg['en'] !== undefined) message = defaultMsg['en'];
+            else message = "Hi there!"; // Absolute last fallback
+
+            debug('[getGreetingMessage] Mensagem final escolhida:', message);
+            return message;
+        }
+
+        // Função para obter mensagem do prompt proativo traduzida (REVISADA - Simplified)
+        function getProactiveMessage() {
+            let message;
+            // Priority: User Config (Full > Base > EN) -> Default Config (Full > Base > EN) -> fallback
+            const userPrompt = config.proactivePrompt?.message; // Use optional chaining
+            const defaultPrompt = defaultConfig.proactivePrompt?.message;
+
+            if (userPrompt && userPrompt[detectedLang] !== undefined) message = userPrompt[detectedLang];
+            else if (userPrompt && userPrompt[baseLang] !== undefined) message = userPrompt[baseLang];
+            else if (userPrompt && userPrompt['en'] !== undefined) message = userPrompt['en'];
+            else if (defaultPrompt && defaultPrompt[detectedLang] !== undefined) message = defaultPrompt[detectedLang];
+            else if (defaultPrompt && defaultPrompt[baseLang] !== undefined) message = defaultPrompt[baseLang];
+            else if (defaultPrompt && defaultPrompt['en'] !== undefined) message = defaultPrompt['en'];
+            else message = "Chat with us!"; // Absolute last fallback
+
+            debug('[getProactiveMessage] Mensagem final escolhida:', message);
+            return message;
+        }
+
+        // --- Location Detection Function ---
+        async function fetchUserLocation() {
+            console.log("[DEBUG] fetchUserLocation: START"); // Added log
+            let locationResult = null; // Store result to dispatch event later
+            try {
+                if (!config.detectLocation) {
+                    debug('Location detection is disabled by config.');
+                    return null;
+                }
+
+                // Use ipinfo.io for location detection (free tier available)
+                const geoApiUrl = 'https://ipinfo.io/json';
+                debug(`Fetching location from: ${geoApiUrl}`);
+
+                const response = await fetch(geoApiUrl);
+                if (!response.ok) {
+                    // Handle potential errors like rate limits or API issues
+                    console.error(`Geo API error: ${response.status} - ${response.statusText}`);
+                    throw new Error(`Geo API error: ${response.status}`);
+                }
+                const locationData = await response.json();
+                debug('Fetched location data:', locationData);
+
+                // Extract relevant fields (city, country) - Adjust if API changes
+                if (locationData && locationData.city && locationData.country) {
+                    locationResult = { city: locationData.city, country: locationData.country };
+                } else {
+                    console.warn('[n8n Chat Widget] Geo API response missing expected fields (city, country).', locationData);
+                    locationResult = null; // Or set to a partial object if desired
+                }
+
+            } catch (error) {
+                console.error("[DEBUG] fetchUserLocation: CAUGHT ERROR", error); // Added log
+                debug('Error fetching user location:', error, true);
+                locationResult = null; // Ensure result is null on error
+            }
+            finally {
+                // Dispatch custom event with the detected location (or null)
+                const event = new CustomEvent('n8nLocationDetected', { detail: locationResult });
+                document.body.dispatchEvent(event);
+                debug('Dispatched n8nLocationDetected event with detail:', locationResult);
+                console.log("[DEBUG] fetchUserLocation: FINALLY, returning", locationResult); // Added log
+                return locationResult; // Return the result for getMetadata
+            }
+        }
+
+        // --- Metadata Gathering Function ---
+        async function getMetadata() {
+            console.log("[DEBUG] getMetadata: START"); // Added log
+            let locationData = null;
+            if (config.detectLocation && !config.metadata?.detectedLocation) { // Only fetch if enabled and not overridden
+                locationData = await fetchUserLocation();
+            }
+
+            // Detect timezone using Intl API if not overridden
+            let timezone = config.metadata?.detectedTimeZone; // Check override first
+            if (!timezone) {
+                try {
+                    timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+                } catch (e) {
+                    debug('Could not detect browser timezone.', e, true);
+                    timezone = null; // Set to null if detection fails
+                }
+            }
+
+            const finalMetadata = {
+                // Priority: Config Override > Detected/Default
+                userId: config.metadata?.userId || '', // Default empty
+                userEmail: config.metadata?.userEmail || '', // Default empty
+                userLanguage: config.metadata?.language || detectedLang, // Default detectedLang
+                baseUrl: config.metadata?.baseUrl || window.location.origin, // Default window origin
+                detectedLocation: config.metadata?.detectedLocation || locationData, // Default fetched data (or null)
+                detectedTimeZone: timezone, // Use detected/overridden timezone
+                timestamp: new Date().toISOString() // Always add current timestamp
+            };
+
+            debug('Final metadata object:', finalMetadata);
+            console.log("[DEBUG] getMetadata: SUCCESS, returning metadata"); // Added log
+            return finalMetadata;
+        }
+
+        // Initial load of countries, placed correctly within IIFE scope
+        loadPhoneCountryList().then(() => {
+            debug("Country list loaded, ready for init.");
+            // The list is now loaded and ready for when initN8nChatWidget is called.
+        }).catch(error => {
+            console.error("[CRITICAL] Failed to load phone country list:", error);
+            // Widget might still function but phone input pre-selection will fail.
+        });
+
+        // Expose functions to the global scope for testing/external use
+
+            window.processQuickActions = processQuickActions;
+            window.renderSpecialContent = renderSpecialContent;
+            window.renderQuickActions = renderQuickActions;
     }
 
-    // Initial load of countries, placed correctly within IIFE scope
-    loadPhoneCountryList().then(() => {
-        debug("Country list loaded, ready for init.");
-        // The list is now loaded and ready for when initN8nChatWidget is called.
-    }).catch(error => {
-        console.error("[CRITICAL] Failed to load phone country list:", error);
-        // Widget might still function but phone input pre-selection will fail.
-    });
+    // Modify sendMessage to log instead of send when in test mode
+    const originalSendMessage = window.sendMessage;
+    window.sendMessage = function(message, options) {
+        if (isTestEnvironment) {
+            console.log(`[TEST MODE] sendMessage intercepted. Message: ${message}`);
+        } else {
+            originalSendMessage(message, options);
+        }
+    };
 
+    // Fix list object rendering issue in processQuickActions
+    function processQuickActions(text) {
+        if (!text) return { text: '', hasQuickActions: false };
+    
+        let cleaned = text.trim();
+        let inputObject = null;
+        const buttons = [], selectOptions = [], links = [];
+    
+        // 1) extract input/secret
+        cleaned = cleaned.replace(
+        /(?:\[\{|\{\[)(input|secret)([\s\S]*?)(?:\}\]|\]\})/i,
+        (_m, type, body) => {
+            const parts = body.split('|').map(p => p.trim()).filter(Boolean);
+            let placeholder='', prefix='', required=false, validation='none';
+            parts.forEach(p => {
+            const low = p.toLowerCase();
+            if (low==='required')               required = true;
+            else if (['email','url','phone'].includes(low)) validation = low;
+            else if (!placeholder)             placeholder = p;
+            else if (!prefix)                  prefix = p;
+            });
+            inputObject = { type, placeholder, prefix, required, validation };
+            return '';
+        }
+        );
+    
+        // 2) extract [text](action:…) links/buttons
+        cleaned = cleaned.replace(
+        /\[([^\]]+)\]\((action|acao):([^)]+)\)/gi,
+        (_m, txt, _t, act) => {
+            if (isValidUrl(act)) buttons.push({ text: txt, action: act, type:'external' });
+            else                 links.push({ text: txt, action: act });
+            return '';
+        }
+        );
+    
+        // 3) extract buttons [{button|Text|Action}]
+        cleaned = cleaned.replace(
+        /\[\{(?:button|botao)(?:\||:)\|?([^|]+)\|([^|}\n]+)\}\]/gi,
+        (_m, btnText, btnAction) => {
+            const act = btnAction.trim();
+            buttons.push({
+            text: btnText.trim(),
+            action: act,
+            type: isValidUrl(act) ? 'external' : 'normal',
+            });
+            return '';
+        }
+        );
+    
+        // 4) extract select lists [{list|Title|opt:act|…}]
+        cleaned = cleaned.replace(
+        /\[\{(list|lista):([^|]+)\|([^}]+)\}\]/gi,
+        (_m, _t, title, opts) => {
+            const options = opts.split('|').map(o => {
+                const parts = o.split(':').map(s => s.trim()).filter(Boolean);
+                if (parts.length < 2) {
+                    console.warn('Invalid list option format:', o);
+                    return { text: parts[0] || '', action: '' }; // Default to empty action
+                }
+                return { text: parts[0].trim(), action: parts[1].trim(), type: isValidUrl(parts[1].trim()) ? 'external' : 'normal' };
+            });
+            selectOptions.push({ title: title.trim(), options });
+            return '';
+        }
+        );
+    
+        // 5) strip any leftover markers
+        cleaned = cleaned
+        .replace(/\[\{[^\]]*?\}\]/g, '')
+        .replace(/\{\[[^\]]*?\]\}/g, '')
+        .trim();
+    
+        const hasQuickActions = !!(inputObject || buttons.length || selectOptions.length || links.length);
+        return { text: cleaned, input: inputObject, buttons, selectOptions, links, hasQuickActions };
+    }
 })();

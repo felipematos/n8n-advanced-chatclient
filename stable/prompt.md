@@ -1,4 +1,4 @@
-# version 0.6.26 Stable
+# version 0.6.27 Stable
 
 # System Prompt: Chat Widget Object Syntax
 
