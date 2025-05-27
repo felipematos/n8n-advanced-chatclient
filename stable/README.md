@@ -1,6 +1,6 @@
 # N8N Chat Widget
 
-// v0.6.27 Stable
+// v0.6.28 Stable
 
 A lightweight, customizable chat widget that integrates with n8n workflows with chat trigger nodes. This widget provides a modern chat interface that can be easily embedded into any website.
 

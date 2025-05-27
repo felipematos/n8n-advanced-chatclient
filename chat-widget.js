@@ -736,8 +736,11 @@
             pointer-events: none;
         }
         .n8n-chat-widget .phone-code-select {
-            width: 60px;
+            width: 45px;
             margin-right: 4px;
+            text-overflow: ellipsis;
+            overflow: hidden;
+            white-space: nowrap;
         }
         
         .n8n-chat-widget .quick-action-input-send {
@@ -829,7 +832,11 @@
             transition: transform 0.2s;
             margin-left: 4px;
         }
-        .n8n-chat-widget .quick-action-input-send svg {
+        .n8n-chat-widget .quick-action-input-send:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        .quick-action-input-send svg {
             fill: none;
             stroke: white;
             stroke-width: 2;
@@ -1791,7 +1798,7 @@
         }
 
         // Always show configured greeting as first bot message
-        displayBotMessage( getGreetingMessage() );
+        await displayBotMessage( getGreetingMessage(), metadata );
         
         // If skipping welcome, stop here to avoid default fallback message
         if (config.skipWelcomeScreen) {
@@ -2276,9 +2283,37 @@
                         const flag = iso.split('').map(c=>String.fromCodePoint(0x1f1e6 + c.charCodeAt(0)-65)).join('');
                         const opt = document.createElement('option');
                         opt.value = dialCode;
-                        // Display Flag + Name (+DialCode)
-                        opt.textContent = `${flag} ${name} (+${dialCode})`; 
+                        // Display only flag in the collapsed state, full info in dropdown
+                        opt.textContent = flag; 
+                        // Store the full display text as a data attribute
+                        opt.setAttribute('data-full-text', `${flag} ${name} (+${dialCode})`);
                         countrySelect.appendChild(opt);
+                    });
+                    
+                    // Add event listeners to show full text in dropdown
+                    countrySelect.addEventListener('mousedown', function() {
+                        // Before the dropdown opens, change all option texts to full text
+                        Array.from(this.options).forEach(opt => {
+                            opt.textContent = opt.getAttribute('data-full-text');
+                        });
+                    });
+                    
+                    countrySelect.addEventListener('change', function() {
+                        // After selection, change all options back to flag only
+                        Array.from(this.options).forEach(opt => {
+                            const flag = opt.getAttribute('data-full-text').split(' ')[0];
+                            opt.textContent = flag;
+                        });
+                    });
+                    
+                    countrySelect.addEventListener('blur', function() {
+                        // When dropdown closes, ensure all options are flag only
+                        setTimeout(() => {
+                            Array.from(this.options).forEach(opt => {
+                                const flag = opt.getAttribute('data-full-text').split(' ')[0];
+                                opt.textContent = flag;
+                            });
+                        }, 150);
                     });
 
                     // v0.6.7: Pre-select country based on detected location & prefill input
@@ -2287,7 +2322,13 @@
                         const detectedCountry = phoneCountryList.find(c => c.iso === metadata.detectedLocation.country); 
                         if (detectedCountry) {
                             countrySelect.value = detectedCountry.dialCode;
-                            inEl.value = '+' + detectedCountry.dialCode; // Prefill input (no space)
+                            // Apply proper mask formatting for the detected country
+                            if (typeof applyPhoneMask === 'function') {
+                                applyPhoneMask(inEl, detectedCountry.dialCode);
+                            } else {
+                                // Fallback if function not defined yet
+                                inEl.value = '+' + detectedCountry.dialCode;
+                            }
                             debug('Pre-selected country based on metadata:', detectedCountry);
                             prefilled = true;
                         }
@@ -2297,7 +2338,13 @@
                         const fallbackCountry = phoneCountryList.find(c => c.iso === 'US');
                         if (fallbackCountry) {
                             countrySelect.value = fallbackCountry.dialCode;
-                            inEl.value = '+' + fallbackCountry.dialCode; // Prefill input with fallback (no space)
+                            // Apply proper mask formatting for the fallback country
+                            if (typeof applyPhoneMask === 'function') {
+                                applyPhoneMask(inEl, fallbackCountry.dialCode);
+                            } else {
+                                // Fallback if function not defined yet
+                                inEl.value = '+' + fallbackCountry.dialCode;
+                            }
                             debug('Pre-selected fallback country (US):', fallbackCountry);
                         }
                     }
@@ -2307,11 +2354,114 @@
                     wrapper.appendChild(inEl);
 
                     // Sync input/select listener
+                    // Function to apply country-specific phone mask
+                    function applyPhoneMask(inputEl, countryCode) {
+                        if (!inputEl || !countryCode) return;
+                        
+                        // Store cursor position
+                        const cursorPosition = inputEl.selectionStart;
+                        
+                        // Get the raw digits from the current input
+                        let rawDigits = inputEl.value.replace(/\D/g, '');
+                        
+                        // Get previous raw digits for comparison
+                        const previousValue = inputEl.getAttribute('data-previous-value') || '';
+                        const previousRawDigits = previousValue.replace(/\D/g, '');
+                        
+                        // If deleting, handle specially - don't auto-add digits when deleting
+                        const isDeleting = rawDigits.length < previousRawDigits.length;
+                        
+                        // Find the country info with mask
+                        const country = phoneCountryList.find(c => c.dialCode === countryCode);
+                        
+                        // Always keep country code - only when input has content
+                        if (inputEl.value) {
+                            // Allow input to contain just the + or the partial country code during typing
+                            if (inputEl.value === '+' || /^\+\d{0,4}$/.test(inputEl.value)) {
+                                // Don't modify if they're still typing the country code part
+                                inputEl.setAttribute('data-previous-value', inputEl.value);
+                                return;
+                            }
+                            
+                            // If input doesn't start with the country code, add it only if user isn't still typing the beginning
+                            if (!rawDigits.startsWith(countryCode) && cursorPosition > 1) {
+                                rawDigits = countryCode + rawDigits.replace(new RegExp(`^${countryCode.substring(0, cursorPosition-1)}`), '');
+                            }
+                        } else {
+                            // If empty, just set the basic country code format
+                            inputEl.value = '+' + countryCode;
+                            // Save current value for future comparison
+                            inputEl.setAttribute('data-previous-value', inputEl.value);
+                            return;
+                        }
+                        
+                        let newValue = '';
+                        let newCursorPos = cursorPosition;
+                        
+                        // Apply mask if available
+                        if (country && country.mask && !isDeleting) {
+                            // Get only the digits needed for the mask
+                            const maskDigitCount = (country.mask.match(/9/g) || []).length;
+                            const digitsForMask = rawDigits.substring(0, maskDigitCount);
+                            
+                            // Fill in the mask
+                            let digitIndex = 0;
+                            newValue = country.mask.replace(/9/g, () => {
+                                return digitIndex < digitsForMask.length ? digitsForMask[digitIndex++] : '';
+                            });
+                            
+                            // Remove trailing formatting characters if the number is incomplete
+                            newValue = newValue.replace(/[-\s()]+$/, '');
+                            
+                            // If we have extra digits beyond the mask, just append them
+                            if (rawDigits.length > maskDigitCount) {
+                                newValue += ' ' + rawDigits.substring(maskDigitCount);
+                            }
+                        } else {
+                            // Simple formatting for no mask or when deleting: +{countryCode} {rest of number}
+                            const numberPart = rawDigits.substring(countryCode.length);
+                            newValue = '+' + countryCode + (numberPart ? ' ' + numberPart : '');
+                        }
+                        
+                        // Calculate new cursor position - count non-digit characters added before the cursor
+                        const oldValueBeforeCursor = inputEl.value.substring(0, cursorPosition);
+                        const oldDigitsBeforeCursor = oldValueBeforeCursor.replace(/\D/g, '').length;
+                        
+                        // Set the new value
+                        inputEl.value = newValue;
+                        
+                        // Find new cursor position
+                        let newPos = 0;
+                        let digitCount = 0;
+                        
+                        // Count characters until we've found the position after the same number of digits
+                        for (let i = 0; i < newValue.length; i++) {
+                            if (/\d/.test(newValue[i])) {
+                                digitCount++;
+                            }
+                            if (digitCount > oldDigitsBeforeCursor) {
+                                break;
+                            }
+                            newPos = i + 1;
+                        }
+                        
+                        // Adjust cursor position
+                        if (!isDeleting) {
+                            setTimeout(() => {
+                                inputEl.setSelectionRange(newPos, newPos);
+                            }, 0);
+                        }
+                        
+                        // Save current value for future comparison
+                        inputEl.setAttribute('data-previous-value', newValue);
+                    }
+                    
+                    // Country select change handler
                     countrySelect.addEventListener('change', () => {
                         const currentInput = wrapper.querySelector('input'); // Re-select inEl just in case
                         if (!currentInput) return;
-                        const raw = currentInput.value.replace(/^\+/, '');
-                        currentInput.value = '+' + countrySelect.value + (raw ? ' ' + raw.replace(/^\d+\s*/, '') : '');
+                        // Apply the mask for the newly selected country
+                        applyPhoneMask(currentInput, countrySelect.value);
                         currentInput.focus(); // Keep focus on input
                     });
                 
@@ -2370,33 +2520,90 @@
                     if (obj.validation === 'email' && v && !/^\S+@\S+\.\S+$/.test(v)) ok = false;
                     if (obj.validation === 'url' && v && !/^https?:\/\/.+/.test(v)) ok = false;
                     if (obj.validation === 'phone' && v) {
-                        v = v.replace(/^\+/, '');
-                        // For phone, v already includes the dial code from the input field (e.g., +12223334444)
-                        // We need to check if the part *after* the selected dial code is purely numeric and of reasonable length
+                        // Extract only the digits from the phone number
+                        const rawDigits = v.replace(/\D/g, '');
                         const selectedDialCode = countrySelect.value;
-                        if (v.startsWith('+' + selectedDialCode)) {
-                            const numberPart = v.substring(1 + selectedDialCode.length);
-                            ok = /^\d{5,}$/.test(numberPart); // Example: at least 5 digits for the number part
+                        
+                        // Check if the input starts with the selected country code
+                        // Check either with or without + prefix
+                        const dialCodeDigits = selectedDialCode.replace(/\D/g, '');
+                        const startsWith = rawDigits.startsWith(dialCodeDigits);
+                        
+                        if (startsWith) {
+                            // Get the part after the country code
+                            const numberPartDigits = rawDigits.substring(dialCodeDigits.length);
+                            // Valid if it has at least 5 digits after the country code
+                            ok = numberPartDigits.length >= 5;
                         } else {
                             ok = false; // Input doesn't start with the selected country code
                         }
+                        
+                        // Debug the validation
+                        console.debug(`[Phone Validation] Selected code: ${selectedDialCode}, Raw input: ${rawDigits}, Starts with dial code: ${startsWith}, Valid: ${ok}`);
                     }
                     tick.style.display = ok ? 'block' : 'none';
                     // inEl.classList.toggle('invalid', !ok); // Remove red border styling
-                    btn.disabled = !ok; // Disable send button if not ok
-                    // Phone: update select
+                    console.log(`[DEBUG Mask/Validation] Final 'ok' status: ${ok}. Setting btn.disabled to: ${!ok}`);
+                        btn.disabled = !ok; // Disable send button if not ok
+                    // Phone: update select and apply mask
                     if (obj.validation === 'phone') {
-                        const v2 = inEl.value.replace(/^\+/, '');
-                        const currentDialCode = '+' + countrySelect.value;
-                        const found = phoneCountryList.find(c => v2.startsWith(c.dialCode) && v2.startsWith(currentDialCode.replace('+',''))); // Ensure it matches the selected one too
-                        // Also, if user types a different valid prefix, update the select
-                        if (!v2.startsWith(countrySelect.value)) {
-                            const bestMatch = phoneCountryList.find(c => v2.startsWith(c.dialCode));
-                            if (bestMatch) {
-                                countrySelect.value = bestMatch.dialCode;
+                        // Don't immediately apply mask on every keystroke
+                        // Only detect country code changes and handle those
+                        
+                        // Extract only digits from the input
+                        const rawDigits = inEl.value.replace(/\D/g, '');
+                        
+                        // Don't process further if it's just a + sign or partial country code
+                        if (inEl.value === '+' || /^\+\d{0,4}$/.test(inEl.value)) {
+                            // Still validate if the input is valid
+                            let dialCodeValid = false;
+                            for (const country of phoneCountryList) {
+                                if (inEl.value === '+' + country.dialCode) {
+                                    dialCodeValid = true;
+                                    break;
+                                }
+                            }
+                            // Basic validation for partial dial codes
+                            ok = dialCodeValid && rawDigits.length >= 5;
+                            tick.style.display = ok ? 'block' : 'none';
+                            btn.disabled = !ok;
+                            return;
+                        }
+                        
+                        // If user has typed a different country code, update the select
+                        let changedCountry = false;
+                        if (rawDigits && rawDigits.length >= 1) {
+                            // Try to find a country code that matches what the user typed
+                            // Sort by dial code length (descending) to match longer codes first
+                            const sortedCountries = [...phoneCountryList].sort((a, b) => 
+                                b.dialCode.length - a.dialCode.length
+                            );
+                            
+                            for (const country of sortedCountries) {
+                                if (rawDigits.startsWith(country.dialCode)) {
+                                    if (countrySelect.value !== country.dialCode) {
+                                        countrySelect.value = country.dialCode;
+                                        changedCountry = true;
+                                    }
+                                    break;
+                                }
                             }
                         }
-                        if (found) countrySelect.value = found.dialCode;
+                        
+                        // Apply the mask, but only if the value has substantially changed
+                        // This prevents constant reformatting during typing
+                        const previousValue = inEl.getAttribute('data-previous-value') || '';
+                        const currentValue = inEl.value;
+                        
+                        // Only apply mask if value changed significantly or country changed
+                        const valueChangeThreshold = 1; // character difference threshold
+                        if (changedCountry || 
+                            Math.abs(currentValue.length - previousValue.length) >= valueChangeThreshold) {
+                            applyPhoneMask(inEl, countrySelect.value);
+                        }
+                        
+                        // If we changed the country, no need to trigger validation again
+                        // The applyPhoneMask function will properly format the number
                     }
                 });
                 btn.addEventListener('click', () => {
@@ -2414,12 +2621,28 @@
                         return;
                     }
                     if (obj.validation === 'phone') {
-                        // v already contains the full number like +12223334444 from the input field
-                        // No need to prepend countrySelect.value again
-                        // Ensure it starts with a + for consistency if it was typed without it
-                        if (!v.startsWith('+')) {
-                            v = '+' + v;
+                        // For phone numbers, we want to send only digits (no formatting)
+                        // Extract only the digits from the formatted phone number
+                        const rawDigits = v.replace(/\D/g, '');
+                        
+                        // The actual value to send should be just the digits
+                        v = rawDigits;
+                        
+                        // But we want to display the formatted version for the user
+                        const country = phoneCountryList.find(c => c.dialCode === countrySelect.value);
+                        let displayValue = '+' + rawDigits; // Default display format
+                        
+                        // If we found the country and it has a mask, use it for display
+                        if (country && country.mask) {
+                            // Try to apply the mask for display purposes
+                            let digitIndex = 0;
+                            displayValue = country.mask.replace(/9/g, () => {
+                                return digitIndex < rawDigits.length ? rawDigits[digitIndex++] : '9';
+                            });
                         }
+                        
+                        // Set maskedMessage to show the formatted number instead of just digits
+                        display = obj.prefix + displayValue;
                     }
                     const raw = obj.prefix + v;
                     const display = obj.type === 'secret' ? obj.prefix + '*'.repeat(v.length) : raw;

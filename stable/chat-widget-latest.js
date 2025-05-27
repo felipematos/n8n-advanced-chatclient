@@ -1,4 +1,4 @@
-// v0.6.27 Stable: fix: always remove all previous widgets before rendering new one
+// version 0.6.28 Stable
 (function() {
     // v0.6.5: define phoneCountryList to avoid ReferenceErrors
     const countriesFilePath = 'https://felipematos.github.io/n8n-advanced-chatclient/stable/phone-countries.json'; // Path for stable version
