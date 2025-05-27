@@ -1,4 +1,4 @@
-<!-- Demo HTML File Version 0.6.28 Stable -->
+<!-- Demo HTML File Version 06.29 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -728,8 +728,8 @@
 
             // Carregar o script do widget
             const script = document.createElement('script');
-            script.id = 'n8n-chat-widget-latest.js';
-            script.src = 'https://felipematos.github.io/n8n-advanced-chatclient/stable/chat-widget-latest.js'; // Stable version
+            script.id = 'n8n-chat-widget-script';
+            script.src = 'chat-widget-latest.js'; // Change to chat-widget-latest.js in production
             script.defer = true; // Adicionado defer
             script.onerror = function() { // Adicionado onerror
                 console.error('Failed to load '+ script.src +'!');
@@ -765,7 +765,7 @@
             return `<script>
   window.ChatWidgetConfig = ${configString};
 <\/script>
-<script src="https://felipematos.github.io/n8n-advanced-chatclient/stable/chat-widget-latest.js"></script>`;
+<script src="https://felipematos.github.io/n8n-advanced-chatclient/stable/chat-widget.js" defer><\/script>`;
         }
 
         generateCodeBtn.addEventListener('click', () => {
@@ -860,7 +860,7 @@
                 console.log("Chat widget removed from DOM.");
             }
             // Remover script se existir (pode ser necessário se o script manipular estado global)
-            const existingScript = document.getElementById('n8n-chat-widget-latest.js');
+            const existingScript = document.getElementById('n8n-chat-widget-script');
             if (existingScript) {
                 existingScript.remove();
                 console.log("Chat widget script removed.");
